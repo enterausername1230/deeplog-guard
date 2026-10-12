@@ -11,16 +11,29 @@ from pathlib import Path
 
 import numpy as np
 
-PAD, UNK = 0, 1
+# 특수 토큰 (프로젝트 전체에서 이 값만 사용)
+PAD, UNK, EOS = 0, 1, 2          # EOS: 세션 종료. 정상 시퀀스 앞부분에서 끊긴 이상 세션 탐지용 (EDA 결론 #4)
+NUM_SPECIAL = 3
 
 
 def load_vocab(path: str | Path) -> dict:
     return json.loads(Path(path).read_text())
 
 
-def encode(events: np.ndarray, event_to_index: dict[str, int]) -> np.ndarray:
-    """원본 event_id 시퀀스 -> 어휘 인덱스 (학습 때 못 본 이벤트는 UNK)."""
-    return np.asarray([event_to_index.get(str(int(e)), UNK) for e in events], dtype=np.int64)
+def make_lookup(event_to_index: dict[str, int], max_event_id: int = 4096) -> np.ndarray:
+    """event_id -> 어휘 인덱스 배열. 어휘에 없는 id 는 UNK."""
+    lut = np.full(max_event_id + 1, UNK, dtype=np.int64)
+    for e, i in event_to_index.items():
+        lut[int(e)] = i
+    return lut
+
+
+def encode(events: np.ndarray, event_to_index: dict[str, int] | np.ndarray, add_eos: bool = False) -> np.ndarray:
+    """원본 event_id 시퀀스 -> 어휘 인덱스 (학습 때 못 본 이벤트는 UNK). add_eos 면 끝에 EOS."""
+    lut = event_to_index if isinstance(event_to_index, np.ndarray) else make_lookup(event_to_index)
+    ev = np.asarray(events, dtype=np.int64)
+    out = np.where(ev < len(lut), lut[np.minimum(ev, len(lut) - 1)], UNK)
+    return np.append(out, EOS) if add_eos else out
 
 
 def pad_left(seq: np.ndarray, size: int) -> np.ndarray:

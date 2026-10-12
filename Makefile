@@ -1,6 +1,6 @@
 PY ?= .venv/bin/python
 
-.PHONY: setup download parse split baseline drain-eval data test clean-data
+.PHONY: setup download parse split baseline drain-eval export-detector data test clean-data
 
 setup:            ## 가상환경 + 의존성 설치 (uv 필요)
 	uv venv --python 3.11 .venv
@@ -21,6 +21,9 @@ baseline:         ## 베이스라인 2종 → results/baseline_*.json
 
 drain-eval:       ## Drain 검증(공식 정답 대비)·sim_th/depth 튜닝 → results/drain_*.{csv,json}
 	$(PY) -m logguard.data.drain_tuning
+
+export-detector:  ## 백엔드용 Detector 내보내기 + test 재현 검증 → artifacts/models/
+	$(PY) -m logguard.models.inference --export statistical_frequency
 
 data: download parse split   ## 데이터 파이프라인 전체
 

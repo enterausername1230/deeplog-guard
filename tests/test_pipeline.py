@@ -6,7 +6,7 @@ from logguard.baseline.rule_based import RuleBasedDetector, count_matrix, error_
 from logguard.config import ROOT
 from logguard.data.parse import HDFSParser, split_header
 from logguard.data.split import assign_splits
-from logguard.data.windows import PAD, UNK, encode, next_event_windows, sliding_windows
+from logguard.data.windows import EOS, PAD, UNK, encode, next_event_windows, sliding_windows
 from logguard.eval.metrics import percentile_threshold, prf
 
 SAMPLE = [
@@ -42,7 +42,8 @@ def test_windows():
     assert y.tolist() == [5, 6, 7]
     assert sliding_windows(seq, 2).tolist() == [[5, 6], [6, 7]]
     assert sliding_windows(seq, 5).tolist() == [[PAD, PAD, 5, 6, 7]]
-    assert encode(np.array([3, 99]), {"3": 2}).tolist() == [2, UNK]
+    assert encode(np.array([3, 99, 99999]), {"3": 5}).tolist() == [5, UNK, UNK]
+    assert encode(np.array([3]), {"3": 5}, add_eos=True).tolist() == [5, EOS]
 
 
 def test_prf_and_threshold():

@@ -20,8 +20,7 @@ import numpy as np
 import pandas as pd
 
 from logguard.config import load_config
-
-PAD, UNK = 0, 1
+from logguard.data.windows import EOS, NUM_SPECIAL, PAD, UNK
 
 
 def assign_splits(sess: pd.DataFrame, ratios: dict, strategy: str, seed: int) -> pd.Series:
@@ -48,15 +47,16 @@ def assign_splits(sess: pd.DataFrame, ratios: dict, strategy: str, seed: int) ->
 
 
 def build_vocab(train: pd.DataFrame, templates: pd.DataFrame) -> dict:
-    """학습셋에 나온 이벤트만 어휘에 포함. 0=PAD, 1=UNK(학습 때 못 본 이벤트)."""
+    """학습셋에 나온 이벤트만 어휘에 포함. 0=PAD, 1=UNK(학습 때 못 본 이벤트), 2=EOS(세션 종료)."""
     seen = sorted({int(e) for seq in train["events"] for e in np.unique(seq)})
     tpl = dict(zip(templates["event_id"], templates["template"]))
     return {
         "pad_index": PAD,
         "unk_index": UNK,
-        "event_to_index": {str(e): i + 2 for i, e in enumerate(seen)},
-        "index_to_template": {str(i + 2): tpl.get(e, "") for i, e in enumerate(seen)},
-        "num_classes": len(seen) + 2,
+        "eos_index": EOS,
+        "event_to_index": {str(e): i + NUM_SPECIAL for i, e in enumerate(seen)},
+        "index_to_template": {str(i + NUM_SPECIAL): tpl.get(e, "") for i, e in enumerate(seen)},
+        "num_classes": len(seen) + NUM_SPECIAL,
     }
 
 

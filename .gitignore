@@ -15,9 +15,12 @@ data/processed/*
 !data/processed/split_summary.json
 !data/processed/event_vocab.json
 
-# 모델/산출물 (Drain3 상태는 작아서 공유)
+# 모델/산출물 (Drain3 상태·작은 Detector 설정 json 은 백엔드 연동용으로 공유)
 artifacts/*
 !artifacts/drain3/
+!artifacts/models/
+artifacts/models/*
+!artifacts/models/*.json
 *.pt
 *.pth
 *.ckpt

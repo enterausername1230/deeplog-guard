@@ -37,10 +37,16 @@ dplngproj/
 │   │   ├── parse.py         # Drain3 파싱 → 라인/템플릿/세션 테이블 + Drain 상태 저장
 │   │   ├── split.py         # Block ID 단위 train/val/test 분할 + 이벤트 어휘
 │   │   ├── drain_tuning.py  # Loghub 공식 템플릿 대비 Drain 검증·sim_th/depth 튜닝
+│   │   ├── online.py        # 실시간 파서: 로그 1줄 → Event ID, Block ID (백엔드용)
 │   │   └── windows.py       # 슬라이딩 윈도우 (DeepLog / Autoencoder 입력)
 │   ├── baseline/rule_based.py   # 키워드·정규식 + 빈도 임계치 베이스라인
 │   ├── eval/metrics.py      # Precision/Recall/F1, 백분위수 임계치
-│   ├── models/              # Autoencoder, DeepLog (예정)
+│   ├── models/
+│   │   ├── dataset.py       # 세션 → 윈도우 (중복 압축, EOS/UNK)
+│   │   ├── scoring.py       # 세션 점수·임계치 선택·0~1 정규화·결과 저장
+│   │   ├── train_utils.py   # 시드·장치·가중 학습 루프
+│   │   ├── inference.py     # Detector 인터페이스 (백엔드용, docs/interface_backend.md)
+│   │   └── (예정) deeplog.py, autoencoder.py
 │   ├── api/                 # FastAPI 추론 서버 (예정)
 │   └── dashboard/           # Streamlit + Slack (예정)
 ├── tests/                   # pytest (원본 데이터 없이 실행)
@@ -49,9 +55,9 @@ dplngproj/
 │   ├── raw/HDFS_v1/         # HDFS.log (1.5GB), preprocessed/anomaly_label.csv
 │   ├── interim/             # 파싱 결과
 │   └── processed/           # 분할 결과
-├── artifacts/drain3/        # 온라인 추론용 Drain3 상태 (git 포함)
+├── artifacts/               # drain3/ 상태, models/*.json Detector 설정 (git 포함)
 ├── results/                 # 모델·베이스라인 평가 결과 json
-└── docs/                    # 계획서, 주차별 실행 계획 (plan_week4-6.md)
+└── docs/                    # 실행 계획(plan_week4-6.md), 백엔드 인터페이스(interface_backend.md)
 ```
 
 ## 시작하기
