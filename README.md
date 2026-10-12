@@ -63,7 +63,7 @@ dplngproj/
 │   └── processed/           # 분할 결과
 ├── artifacts/               # drain3/ 상태, models/*.json Detector 설정 (git 포함)
 ├── results/                 # 모델·베이스라인 평가 결과 json
-└── docs/                    # 실행 계획(plan_week4-6.md), 백엔드 인터페이스(interface_backend.md), figures/
+└── docs/                    # 개발 일정(schedule.md), 실행 계획(plan_week4-6.md), 백엔드 인터페이스(interface_backend.md), figures/
 ```
 
 ## 시작하기
