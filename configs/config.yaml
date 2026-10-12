@@ -57,5 +57,17 @@ deeplog:
   batch_size: 512
   lr: 0.002
   weight_power: 1.0       # 1: 원본 윈도우 분포 그대로, 0: 고유 윈도우 균등
+  lr_schedule: none       # cosine 은 20 에폭에서 학습 부족 (시드 3개 평균 val F1 0.864 < 0.900)
   topk_grid: [1, 2, 3, 4, 5, 6, 7, 8, 9]
   device: cpu             # 모델이 작아 CPU 가 더 빠를 수 있음 (auto 로 MPS 사용 가능)
+
+autoencoder:
+  window_size: 10         # 각 이벤트로 끝나는 윈도우 (5단계에서 튜닝)
+  add_eos: true
+  hidden_dims: [64, 16]   # 220 -> 64 -> 16(잠재) -> 64 -> 220
+  epochs: 300             # 30 에폭 F1 0.747 -> 300 에폭 0.94 (CPU 약 20초)
+  batch_size: 512
+  lr: 0.002
+  lr_schedule: cosine     # 고정 학습률은 후반 loss 튐. 시드 3개 평균 val F1 0.916 -> 0.927
+  weight_power: 1.0
+  device: cpu

@@ -43,10 +43,15 @@ def train_weighted(
     device: torch.device,
     seed: int = 42,
     log_every: int = 1,
+    lr_schedule: str = "none",
 ) -> list[float]:
-    """loss_fn(model, *batch) -> 샘플별 손실 (B,). 가중 평균으로 학습하고 에폭별 평균 손실을 반환."""
+    """loss_fn(model, *batch) -> 샘플별 손실 (B,). 가중 평균으로 학습하고 에폭별 평균 손실을 반환.
+
+    lr_schedule="cosine" 이면 에폭마다 학습률을 lr → 0 으로 줄인다 (후반 loss 튐 방지).
+    """
     model.to(device)
     opt = torch.optim.Adam(model.parameters(), lr=lr)
+    sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=epochs) if lr_schedule == "cosine" else None
     data = [torch.as_tensor(t) for t in tensors]
     w_all = torch.as_tensor(weights, dtype=torch.float32)
     n = len(w_all)
@@ -63,6 +68,8 @@ def train_weighted(
             loss.backward()
             opt.step()
             total += loss.item() * len(idx)
+        if sched:
+            sched.step()
         history.append(total / n)
         if log_every and ep % log_every == 0:
             print(f"  epoch {ep:>3}/{epochs}  loss {history[-1]:.5f}  ({time.time() - t0:.1f}s)")

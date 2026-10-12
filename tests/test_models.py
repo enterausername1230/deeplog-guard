@@ -107,3 +107,23 @@ def test_deeplog_learns_and_detects_truncation():
     assert not det.score_event([1, 2]).is_anomaly               # 스트리밍 중엔 아직 끝난 게 아니므로 정상
     assert det.score_event([1, 3]).is_anomaly                   # 2 대신 3 → 순서 이상
     assert det.score_session([1, 7]).reason == "unknown_event"
+
+
+def test_autoencoder_reconstructs_normal_and_flags_unusual():
+    from logguard.models.autoencoder import AutoencoderDetector, WindowAutoencoder, recon_nll, window_errors
+    torch.manual_seed(0)
+    vocab = {"event_to_index": {"1": 3, "2": 4, "3": 5}}
+    seqs = encode_sessions(pd.DataFrame({"events": [np.array([1, 2, 3])] * 50}), vocab, add_eos=True)
+    ws = build_windows(seqs, w=3, with_next=False)
+    model = WindowAutoencoder(window_size=3, num_classes=6, hidden_dims=[16, 4])
+    train_weighted(model, (ws.X,), sample_weights(ws.weight), lambda m, xb: recon_nll(m(xb), xb).sum(1),
+                   epochs=300, batch_size=8, lr=0.02, device=torch.device("cpu"), log_every=0, lr_schedule="cosine")
+    thr = float(window_errors(model, ws.X).max()) + 0.5          # 정상 윈도우 최대 오차보다 약간 위
+    meta = {"window_size": 3, "add_eos": True, "hidden_dims": [16, 4], "num_classes": 6, "threshold": thr,
+            "event_to_index": vocab["event_to_index"], "templates": {"1": "A", "2": "B", "3": "C"}}
+    det = AutoencoderDetector(model, meta)
+    assert not det.score_session([1, 2, 3]).is_anomaly
+    assert det.score_session([1, 2]).is_anomaly                  # 일찍 끝남 (EOS 위치 이상)
+    bad = det.score_session([2, 1, 3])                           # 순서 뒤바뀜
+    assert bad.is_anomaly and bad.score > 0.5 and "worst" in bad.details
+    assert det.score_session([1, 7]).reason == "unknown_event"

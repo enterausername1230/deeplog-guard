@@ -154,7 +154,8 @@ def run(cfg: dict, add_eos: bool | None = None, tag: str = "deeplog", export: bo
     loss_fn = lambda m, xb, yb: nn.functional.cross_entropy(m(xb), yb, reduction="none")
     history = train_weighted(model, (tr.X, tr.y), sample_weights(tr.weight, dc["weight_power"]), loss_fn,
                              epochs=dc["epochs"], batch_size=dc["batch_size"], lr=dc["lr"],
-                             device=get_device(dc["device"]), seed=cfg["seed"], log_every=5)
+                             device=get_device(dc["device"]), seed=cfg["seed"],
+                             lr_schedule=dc.get("lr_schedule", "none"), log_every=5)
     train_sec = time.time() - t0
 
     # val 채점 (고유 윈도우만 한 번씩)

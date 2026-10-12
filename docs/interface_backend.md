@@ -54,10 +54,11 @@ for blk in log.block_ids:                             # 로그 1줄마다
 | `score` | float 0~1 | 이상 점수. **0.5 가 임계치** (모든 모델 공통) → 대시보드 기준선 0.5 |
 | `is_anomaly` | bool | `score > 0.5` 와 같은 의미 (정확히 0.5 는 정상) |
 | `reason` | str | `unknown_event`(학습에 없던 이벤트) / `model`(모델 판정) / `normal` |
-| `model` | str | `statistical_frequency`, `deeplog`, (예정) `autoencoder` |
-| `details` | dict | 판정 근거. 통계 빈도: `event_id, count, threshold, template` / DeepLog: `position, actual{event_id, template, prob, rank}, topk[...]` |
+| `model` | str | `statistical_frequency`, `deeplog`, `autoencoder` |
+| `details` | dict | 판정 근거. 통계 빈도: `event_id, count, threshold, template` / DeepLog: `position, actual{event_id, template, prob, rank}, topk[...]` / Autoencoder: `position, reconstruction_error, threshold, window, worst{offset, actual, reconstructed}` |
 
-- 속도 (CPU): 통계 빈도 0.06ms/세션, DeepLog 0.74ms/세션 · 0.23ms/이벤트 (목표 p95 1초 대비 여유 큼)
+- 속도 (CPU): 통계 빈도 0.06ms/세션, DeepLog 0.74ms/세션 · 0.23ms/이벤트, Autoencoder 0.11ms/세션 · 0.09ms/이벤트 (목표 p95 1초 대비 여유 큼)
+- **Autoencoder 사용 가능 (2026-10-12):** `load_detector("autoencoder")`. 최종 모델은 6단계에서 확정
 - **DeepLog 사용 가능 (2026-10-12):** `load_detector("deeplog")`. `details` 예시:
   `{"position": 5, "actual": {"event_id": 13, "template": "Verification succeeded for <:BLK:>", "prob": 0.0003, "rank": 7}, "topk": [{"event_id": 3, "template": "...", "prob": 0.61}, ...]}`
   세션이 너무 일찍 끝난 경우 `actual.template` 이 `<EOS: 세션 종료>` 로 표시된다 (`score_session(..., closed=True)` 일 때만).

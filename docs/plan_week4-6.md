@@ -77,6 +77,20 @@
 | 지연 | Detector 단일 호출 CPU 0.74ms/세션, 0.23ms/이벤트 (목표 p95 1초 대비 충분) |
 | 백엔드 | `load_detector("deeplog")` 로 교체 가능. `artifacts/models/deeplog.pt` (234KB) git 포함 |
 
+### 4단계 완료 (2026-10-12) — Autoencoder (val 기준, test 는 6단계)
+
+| 항목 | 결과 |
+|---|---|
+| 모델 | 원-핫 윈도우(10×22=220) → MLP 64 → 16 → 64 → 220, 파라미터 30,572개. 손실은 위치별 Cross-Entropy 합(원-핫엔 MSE 보다 적합) |
+| 성능 (val, seed 42) | **F1 0.941** (P 0.965, R 0.918) |
+| EOS 효과 | EOS 없음 0.798 → EOS 추가 0.941 (**+14.3%p**, DeepLog 보다 효과 큼) |
+| 학습량 | 30 에폭 0.747 → 100 에폭 0.903 → 300 에폭 0.936. 고유 윈도우 2.4만 개를 충분히 외워야 함 (CPU 약 20초) |
+| 학습률 | 고정 학습률은 후반 loss 가 튐 → cosine 감소 적용 (시드 3개 평균 0.916 → 0.927). `train_utils.train_weighted(lr_schedule=)` 공통 옵션 추가 |
+| 시드 편차 | DeepLog 0.900 ± 0.018 vs AE 0.927 ± 0.015. 편차가 모델 차이와 비슷 → 6단계 최종 비교는 다중 시드 평균 |
+| 편차 원인 | 임계치 후보가 p99.5 와 p99.9 사이를 건너뛰어, 시드에 따라 Precision 0.85 ↔ 0.96 으로 갈림 → 5단계에서 후보 세분화 |
+| 지연 | Detector CPU 0.11ms/세션, 0.09ms/이벤트 (DeepLog 보다 약 7배 빠름) |
+| 백엔드 | `load_detector("autoencoder")`. details: 가장 복원이 안 된 위치의 실제 이벤트 vs 복원된 이벤트 |
+
 ## 팀 연계
 
 - **안명근 (Backend):** 2단계에서 `Detector.predict(events) -> score, is_anomaly, topk` 인터페이스를 먼저 공유한다. 모델 완성 전에는 통계 빈도 베이스라인이 같은 인터페이스로 동작하므로 FastAPI 연동을 병렬로 진행할 수 있다.
