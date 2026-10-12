@@ -1,0 +1,213 @@
+{
+  "model": "rule_based",
+  "selected_on": "val_f1",
+  "best_config": {
+    "percentile": 99.0,
+    "rules": [
+      "keyword",
+      "length"
+    ]
+  },
+  "val": {
+    "precision": 0.0839,
+    "recall": 0.684,
+    "f1": 0.1495
+  },
+  "test": {
+    "precision": 0.0832,
+    "recall": 0.6839,
+    "f1": 0.1483,
+    "tp": 2304,
+    "fp": 25402,
+    "fn": 1065,
+    "tn": 86244
+  },
+  "test_per_rule": {
+    "keyword": {
+      "precision": 0.083,
+      "recall": 0.6797,
+      "f1": 0.1479,
+      "tp": 2290,
+      "fp": 25316,
+      "fn": 1079,
+      "tn": 86330
+    },
+    "length": {
+      "precision": 0.2003,
+      "recall": 0.0692,
+      "f1": 0.1028,
+      "tp": 233,
+      "fp": 930,
+      "fn": 3136,
+      "tn": 110716
+    }
+  },
+  "val_grid_top10": [
+    {
+      "percentile": 99.0,
+      "rules": "keyword+length",
+      "precision": 0.0839,
+      "recall": 0.684,
+      "f1": 0.1495,
+      "tp": 2303,
+      "fp": 25136,
+      "fn": 1064,
+      "tn": 86508
+    },
+    {
+      "percentile": 99.9,
+      "rules": "keyword+length",
+      "precision": 0.0838,
+      "recall": 0.6813,
+      "f1": 0.1493,
+      "tp": 2294,
+      "fp": 25067,
+      "fn": 1073,
+      "tn": 86577
+    },
+    {
+      "percentile": 99.95,
+      "rules": "keyword+length",
+      "precision": 0.0838,
+      "recall": 0.6813,
+      "f1": 0.1493,
+      "tp": 2294,
+      "fp": 25067,
+      "fn": 1073,
+      "tn": 86577
+    },
+    {
+      "percentile": 99.5,
+      "rules": "keyword+length",
+      "precision": 0.0837,
+      "recall": 0.6822,
+      "f1": 0.1492,
+      "tp": 2297,
+      "fp": 25136,
+      "fn": 1070,
+      "tn": 86508
+    },
+    {
+      "percentile": 99.0,
+      "rules": "keyword",
+      "precision": 0.0835,
+      "recall": 0.6783,
+      "f1": 0.1488,
+      "tp": 2284,
+      "fp": 25058,
+      "fn": 1083,
+      "tn": 86586
+    },
+    {
+      "percentile": 99.5,
+      "rules": "keyword",
+      "precision": 0.0835,
+      "recall": 0.6783,
+      "f1": 0.1488,
+      "tp": 2284,
+      "fp": 25058,
+      "fn": 1083,
+      "tn": 86586
+    },
+    {
+      "percentile": 99.9,
+      "rules": "keyword",
+      "precision": 0.0835,
+      "recall": 0.6783,
+      "f1": 0.1488,
+      "tp": 2284,
+      "fp": 25058,
+      "fn": 1083,
+      "tn": 86586
+    },
+    {
+      "percentile": 99.95,
+      "rules": "keyword",
+      "precision": 0.0835,
+      "recall": 0.6783,
+      "f1": 0.1488,
+      "tp": 2284,
+      "fp": 25058,
+      "fn": 1083,
+      "tn": 86586
+    },
+    {
+      "percentile": 99.99,
+      "rules": "keyword",
+      "precision": 0.0835,
+      "recall": 0.6783,
+      "f1": 0.1488,
+      "tp": 2284,
+      "fp": 25058,
+      "fn": 1083,
+      "tn": 86586
+    },
+    {
+      "percentile": 99.99,
+      "rules": "keyword+length",
+      "precision": 0.0835,
+      "recall": 0.6786,
+      "f1": 0.1488,
+      "tp": 2285,
+      "fp": 25065,
+      "fn": 1082,
+      "tn": 86579
+    }
+  ],
+  "error_event_ids": [
+    14,
+    15,
+    16,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31,
+    33,
+    35,
+    36,
+    37,
+    38,
+    41,
+    42,
+    43,
+    44,
+    45,
+    46
+  ],
+  "error_templates": [
+    "writeBlock <:BLK:> received exception <:*:>",
+    "PacketResponder <:BLK:> <:NUM:> Exception <:*:>",
+    "writeBlock <:BLK:> received exception java.io.IOException: Could not read from stream",
+    "Exception in receiveBlock for block <:BLK:> java.io.IOException: Connection reset by peer",
+    "writeBlock <:BLK:> received exception java.io.IOException: Connection reset by peer",
+    "BLOCK* NameSystem.addStoredBlock: Redundant addStoredBlock request received for <:BLK:> on <:IP:> size <:NUM:>",
+    "PacketResponder <:BLK:> <:NUM:> Exception java.net.SocketTimeoutException: <:NUM:> millis timeout while waiting for channel to be ready for read. ch : java.nio.channels.SocketChannel[connected local=<:IP:> remote=<:IP:>]",
+    "PacketResponder <:BLK:> <:NUM:> Exception java.io.InterruptedIOException: Interruped while waiting for IO on channel java.nio.channels.SocketChannel[connected local=<:IP:> remote=<:IP:>]. <:NUM:> millis timeout left.",
+    "Exception in receiveBlock for block <:BLK:> <:*:>",
+    "<:IP:>:Exception writing block <:BLK:> to mirror <:IP:>",
+    "Exception in receiveBlock for block <:BLK:> java.io.InterruptedIOException: Interruped while waiting for IO on channel java.nio.channels.SocketChannel[connected local=<:IP:> remote=<:IP:>]. <:NUM:> millis timeout left.",
+    "writeBlock <:BLK:> received exception java.io.InterruptedIOException: Interruped while waiting for IO on channel java.nio.channels.SocketChannel[connected local=<:IP:> remote=<:IP:>]. <:NUM:> millis timeout left.",
+    "PacketResponder <:BLK:> <:NUM:> Exception java.io.IOException: Broken pipe",
+    "writeBlock <:BLK:> received exception java.io.IOException: Block <:BLK:> is valid, and cannot be written to.",
+    "<:IP:>:Failed to transfer <:BLK:> to <:IP:> got java.io.IOException: Connection reset by peer",
+    "Unexpected error trying to delete block <:BLK:>. BlockInfo not found in volumeMap.",
+    "<:IP:>:Got exception while serving <:BLK:> to <:IP:>:",
+    "PacketResponder <:BLK:> <:NUM:> Exception java.io.IOException: <:*:> <:*:> <:*:> <:*:>",
+    "Exception in receiveBlock for block <:BLK:> java.net.SocketTimeoutException: <:NUM:> millis timeout while waiting for channel to be ready for write. ch : java.nio.channels.SocketChannel[connected local=<:IP:> remote=<:IP:>]",
+    "writeBlock <:BLK:> received exception java.net.SocketTimeoutException: <:NUM:> millis timeout while waiting for channel to be ready for <:*:> ch : java.nio.channels.SocketChannel[connected local=<:IP:> remote=<:IP:>]",
+    "PendingReplicationMonitor timed out block <:BLK:>",
+    "writeBlock <:BLK:> received exception java.io.IOException: <:*:> <:*:>",
+    "PacketResponder <:BLK:> <:NUM:> Exception java.io.InterruptedIOException: Interruped while waiting for IO on channel java.nio.channels.SocketChannel[closed]. <:NUM:> millis timeout left.",
+    "writeBlock <:BLK:> received exception java.net.NoRouteToHostException: No route to host",
+    "Adding an already existing block <:BLK:>",
+    "Exception in receiveBlock for block <:BLK:> java.io.IOException: Broken pipe"
+  ]
+}

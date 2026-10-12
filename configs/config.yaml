@@ -1,0 +1,44 @@
+# 7조 DeepLog-Guard 공통 설정
+# 모든 경로는 프로젝트 루트 기준 상대경로
+
+seed: 42
+
+paths:
+  download_dir: data/raw/_download      # 원본 zip 보관
+  raw_dir: data/raw/HDFS_v1             # 압축 해제된 원본 (HDFS.log, preprocessed/)
+  interim_dir: data/interim             # Drain 파싱 결과 (라인/세션/템플릿)
+  processed_dir: data/processed         # train/val/test 분할 결과
+  artifacts_dir: artifacts              # Drain3 상태, 학습된 모델 등
+  results_dir: results                  # 평가 결과 (json/csv)
+
+dataset:
+  name: HDFS_v1
+  url: https://zenodo.org/records/8196385/files/HDFS_v1.zip?download=1
+  zip_name: HDFS_v1.zip
+  log_file: HDFS.log
+  label_file: preprocessed/anomaly_label.csv
+
+parsing:
+  drain_config: configs/drain3.ini
+  progress_every: 500000
+
+split:
+  # random: Block ID 단위 층화 무작위 분할 (테스트셋 실제 클래스 분포 유지)
+  # chrono: 블록 최초 등장 순서 기준 시간순 분할
+  strategy: random
+  ratios: {train: 0.6, val: 0.2, test: 0.2}
+  # 학습셋은 정상 세션만 사용 (이상 세션은 제외하고 개수만 기록)
+  train_normal_only: true
+
+window:
+  size: 10        # 계획서: 10~20 범위에서 튜닝
+  stride: 1
+
+baseline:
+  # 템플릿 텍스트에 포함되면 '오류 이벤트'로 간주하는 키워드 (대소문자 무시)
+  # 주의: "invalid" 는 정상 이벤트 "invalidSet"(블록 삭제)에 매칭되어 제외
+  keywords: [error, fail, exception, interrupt, timeout, refused, unable, cannot, corrupt]
+  # 해당 레벨로 한 번이라도 찍힌 템플릿은 '오류 이벤트'로 간주
+  error_levels: [WARN, ERROR, FATAL]
+  # 빈도 임계치 후보 (정상 학습 세션 분포의 백분위수) → 검증셋 F1 최대값으로 선택
+  percentile_grid: [99.0, 99.5, 99.9, 99.95, 99.99, 100.0]

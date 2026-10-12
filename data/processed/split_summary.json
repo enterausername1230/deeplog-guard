@@ -1,0 +1,61 @@
+{
+  "strategy": "random",
+  "seed": 42,
+  "ratios": {
+    "train": 0.6,
+    "val": 0.2,
+    "test": 0.2
+  },
+  "splits": {
+    "train": {
+      "sessions": 334933,
+      "normal": 334933,
+      "anomaly": 0,
+      "anomaly_ratio": 0.0,
+      "anomaly_dropped": 10102,
+      "events_total": 6532627
+    },
+    "val": {
+      "sessions": 115011,
+      "normal": 111644,
+      "anomaly": 3367,
+      "anomaly_ratio": 0.02928,
+      "anomaly_dropped": 0,
+      "events_total": 2234090
+    },
+    "test": {
+      "sessions": 115015,
+      "normal": 111646,
+      "anomaly": 3369,
+      "anomaly_ratio": 0.02929,
+      "anomaly_dropped": 0,
+      "events_total": 2236055
+    }
+  },
+  "vocab_size": 21,
+  "test_unseen_events": [
+    14,
+    15,
+    16,
+    18,
+    19,
+    20,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31,
+    36,
+    38,
+    40,
+    41,
+    42,
+    43,
+    45
+  ]
+}

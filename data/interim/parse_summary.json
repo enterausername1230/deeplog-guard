@@ -1,0 +1,20 @@
+{
+  "lines": 11175629,
+  "header_skipped": 0,
+  "templates": 46,
+  "sessions": 575061,
+  "sessions_unlabeled_dropped": 0,
+  "anomaly_sessions": 16838,
+  "anomaly_ratio": 0.02928,
+  "session_length": {
+    "count": 575061.0,
+    "mean": 19.43,
+    "std": 5.18,
+    "min": 2.0,
+    "25%": 19.0,
+    "50%": 19.0,
+    "75%": 20.0,
+    "max": 298.0
+  },
+  "elapsed_sec": 77.3
+}

@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# 데이터 (용량 큼 → 각자 `make data` 로 재생성)
+data/raw/
+data/interim/*
+data/processed/*
+!data/interim/parse_summary.json
+!data/interim/hdfs_templates.csv
+!data/processed/split_summary.json
+!data/processed/event_vocab.json
+
+# 모델/산출물 (Drain3 상태는 작아서 공유)
+artifacts/*
+!artifacts/drain3/
+*.pt
+*.pth
+*.ckpt
+
+# 런타임
+*.db
+*.sqlite
+*.log
+!tests/**/*.log
+
+# 비밀 정보 (Slack Webhook URL 등)
+.env
+.env.*
+
+# OS / IDE
+.DS_Store
+.idea/
+.vscode/
+
+# 계획서 원본 (팀원 연락처 등 개인정보 포함)
+docs/*.hwp
+docs/*.hwpx
