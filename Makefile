@@ -1,5 +1,24 @@
+# =============================================================================================
+# Makefile — 자주 쓰는 명령을 짧은 이름으로 묶어 둔 파일
+#
+# 사용법: 터미널에서 프로젝트 폴더로 이동한 뒤  make <이름>
+#   예) make setup   → 가상환경 만들고 패키지 설치
+#       make data    → 데이터 다운로드 + Drain 파싱 + 분할 (처음 한 번)
+#       make test    → 단위 테스트 실행
+#
+# 처음 받은 팀원이 할 일 (순서대로)
+#   1. make setup        (uv 가 없으면 먼저: brew install uv)
+#   2. make data         (다운로드 약 7분 + 파싱 약 1~2분)
+#   3. make test         (15개 테스트가 모두 passed 면 준비 완료)
+#
+# 각 줄의 "## …" 은 그 명령이 무엇을 하는지에 대한 설명이다.
+# 실험 재현 순서: data → baseline → drain-eval → deeplog/autoencoder → tune → final-eval → figures
+# =============================================================================================
+
+# 사용할 파이썬 경로 (프로젝트 가상환경). `make test PY=python3` 처럼 바꿔 쓸 수도 있다 (?= : 지정 안 했을 때만 기본값)
 PY ?= .venv/bin/python
 
+# .PHONY: 아래 이름들은 "파일 이름이 아니라 명령 이름" 이라는 표시 (같은 이름의 파일이 있어도 항상 실행됨)
 .PHONY: setup download parse split baseline drain-eval export-detector deeplog autoencoder seed-study tune final-eval figures data test clean-data
 
 setup:            ## 가상환경 + 의존성 설치 (uv 필요)
