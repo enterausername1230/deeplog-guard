@@ -1,0 +1,7 @@
+method,eos,val_f1,test_precision,test_recall,test_f1,test_f1_mean,test_f1_std,n_seeds
+rule_based,,0.578,0.9764,0.4055,0.573,0.573,0.0,1
+statistical_frequency,,0.8884,0.9552,0.8284,0.8873,0.8873,0.0,1
+autoencoder,True,0.9719,0.9701,0.9837,0.9769,0.9779,0.0007,3
+autoencoder_noeos,False,0.8785,0.9662,0.8145,0.8839,0.8839,0.0,1
+deeplog,True,0.928,0.8982,0.9564,0.9264,0.9242,0.0018,3
+deeplog_noeos,False,0.8249,0.8495,0.7943,0.821,0.821,0.0,1

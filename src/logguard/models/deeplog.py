@@ -31,7 +31,7 @@ from logguard.data.windows import EOS, NUM_SPECIAL, PAD, UNK, encode, load_vocab
 from logguard.eval.metrics import prf
 from logguard.models.dataset import build_windows, encode_sessions, unk_mask
 from logguard.models.inference import DetectionResult, Detector
-from logguard.models.scoring import normalize, save_result, search_threshold, session_scores
+from logguard.models.scoring import normalize, save_result, save_test_scores, search_threshold, session_scores
 from logguard.models.train_utils import get_device, sample_weights, seed_everything, train_weighted
 
 
@@ -131,7 +131,9 @@ class DeepLogDetector(Detector):
 
 # --------------------------------------------------------------------------- 학습·평가
 
-def run(cfg: dict, add_eos: bool | None = None, tag: str = "deeplog", export: bool = True) -> dict:
+def run(cfg: dict, add_eos: bool | None = None, tag: str = "deeplog", export: bool = True,
+        evaluate_test: bool = False) -> dict:
+    """evaluate_test=True 는 6단계 최종 평가에서만 사용. val 로 고른 판정 방식·임계치를 test 에 그대로 적용."""
     dc = dict(cfg["deeplog"])
     if add_eos is not None:
         dc["add_eos"] = add_eos
@@ -191,6 +193,18 @@ def run(cfg: dict, add_eos: bool | None = None, tag: str = "deeplog", export: bo
         "val_unk_only": unk_only,
     }
 
+    if evaluate_test:
+        test = pd.read_parquet(proc / "test.parquet")
+        te_seqs = encode_sessions(test, vocab, add_eos=dc["add_eos"])
+        te = build_windows(te_seqs, w, with_next=True)
+        te_nll, te_rank = window_scores(model, te.X, te.y)
+        te_unk = unk_mask(te_seqs)
+        te_rank_s, te_nll_s = session_scores(te_rank + 0.5, te, te_unk), session_scores(te_nll, te, te_unk)
+        pred = te_rank_s > mode["k"] if mode["mode"] == "topk" else te_nll_s > mode["threshold"]
+        result["test"] = prf(test["label"], pred)
+        result["stage"] = "final (val 로 선택한 설정을 test 에 1회 적용)"
+        save_test_scores(cfg, tag, test["label"].to_numpy(), te_nll_s, mode)
+
     if export:
         tpl = pd.read_csv(cfg["paths"]["interim_dir"] / "hdfs_templates.csv")
         meta = {**dc, **mode, "num_classes": C, "event_to_index": vocab["event_to_index"],
@@ -218,6 +232,9 @@ def run(cfg: dict, add_eos: bool | None = None, tag: str = "deeplog", export: bo
     print(f"[{tag}] params {n_params:,}, train {train_sec:.0f}s, mode={mode}")
     print(f"[{tag}] VAL P={chosen['precision']:.4f} R={chosen['recall']:.4f} F1={chosen['f1']:.4f}")
     print(f"[{tag}] top-k  best: k={int(best_k['k'])} F1={best_k['f1']:.4f} | percentile best: p={pct_best['percentile']} F1={pct_best['f1']:.4f}")
+    if "test" in result:
+        t = result["test"]
+        print(f"[{tag}] TEST P={t['precision']:.4f} R={t['recall']:.4f} F1={t['f1']:.4f}")
     if "detector_check" in result:
         print(f"[{tag}] detector {result['detector_check']}")
     return result

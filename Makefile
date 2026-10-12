@@ -1,6 +1,6 @@
 PY ?= .venv/bin/python
 
-.PHONY: setup download parse split baseline drain-eval export-detector deeplog autoencoder seed-study tune data test clean-data
+.PHONY: setup download parse split baseline drain-eval export-detector deeplog autoencoder seed-study tune final-eval figures data test clean-data
 
 setup:            ## 가상환경 + 의존성 설치 (uv 필요)
 	uv venv --python 3.11 .venv
@@ -40,6 +40,12 @@ seed-study:       ## 시드 42·43·44 val 편차 → results/seed_study_*.csv
 tune:             ## 5단계 튜닝 (조합 × 시드 3개, 약 45분) → results/tuning_*.csv
 	$(PY) -m logguard.models.tune --model deeplog
 	$(PY) -m logguard.models.tune --model autoencoder
+
+final-eval:       ## 6단계 test 1회 평가 (시드 3개, 약 20분) → results/final_test.{json,csv}
+	$(PY) -m logguard.eval.final_eval
+
+figures:          ## 보고서 그래프 → docs/figures/*.png (final-eval 이후)
+	$(PY) -m logguard.eval.figures
 
 data: download parse split   ## 데이터 파이프라인 전체
 

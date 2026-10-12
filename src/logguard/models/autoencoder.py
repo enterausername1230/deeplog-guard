@@ -25,9 +25,10 @@ from torch import nn
 
 from logguard.config import load_config
 from logguard.data.windows import EOS, PAD, UNK, encode, load_vocab, make_lookup
+from logguard.eval.metrics import prf
 from logguard.models.dataset import build_windows, encode_sessions, unk_mask
 from logguard.models.inference import DetectionResult, Detector
-from logguard.models.scoring import normalize, save_result, search_threshold, session_scores
+from logguard.models.scoring import normalize, save_result, save_test_scores, search_threshold, session_scores
 from logguard.models.train_utils import get_device, sample_weights, seed_everything, train_weighted
 
 
@@ -133,7 +134,9 @@ class AutoencoderDetector(Detector):
 
 # --------------------------------------------------------------------------- 학습·평가
 
-def run(cfg: dict, add_eos: bool | None = None, tag: str = "autoencoder", export: bool = True) -> dict:
+def run(cfg: dict, add_eos: bool | None = None, tag: str = "autoencoder", export: bool = True,
+        evaluate_test: bool = False) -> dict:
+    """evaluate_test=True 는 6단계 최종 평가에서만 사용. val 로 고른 임계치를 test 에 그대로 적용."""
     ac = dict(cfg["autoencoder"])
     if add_eos is not None:
         ac["add_eos"] = add_eos
@@ -184,6 +187,15 @@ def run(cfg: dict, add_eos: bool | None = None, tag: str = "autoencoder", export
         "val_normal_sessions_with_unseen_window": round(unseen_rate, 5),
     }
 
+    if evaluate_test:
+        test = pd.read_parquet(proc / "test.parquet")
+        te_seqs = encode_sessions(test, vocab, add_eos=ac["add_eos"])
+        te = build_windows(te_seqs, w, with_next=False)
+        te_scores = session_scores(window_errors(model, te.X), te, unk_mask(te_seqs))
+        result["test"] = prf(test["label"], te_scores > mode["threshold"])
+        result["stage"] = "final (val 로 선택한 설정을 test 에 1회 적용)"
+        save_test_scores(cfg, tag, test["label"].to_numpy(), te_scores, mode)
+
     if export:
         tpl = pd.read_csv(cfg["paths"]["interim_dir"] / "hdfs_templates.csv")
         meta = {**ac, **mode, "num_classes": C, "event_to_index": vocab["event_to_index"],
@@ -209,6 +221,9 @@ def run(cfg: dict, add_eos: bool | None = None, tag: str = "autoencoder", export
     print(f"[{tag}] params {n_params:,}, train {train_sec:.0f}s, mode={mode}")
     print(f"[{tag}] VAL P={best['precision']:.4f} R={best['recall']:.4f} F1={best['f1']:.4f}")
     print(f"[{tag}] val 정상 세션 중 학습에 없던 윈도우 포함 비율: {unseen_rate:.4%}")
+    if "test" in result:
+        t = result["test"]
+        print(f"[{tag}] TEST P={t['precision']:.4f} R={t['recall']:.4f} F1={t['f1']:.4f}")
     if "detector_check" in result:
         print(f"[{tag}] detector {result['detector_check']}")
     return result

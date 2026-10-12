@@ -35,6 +35,8 @@ from logguard.config import load_config
 from logguard.eval.metrics import prf
 
 THRESHOLD = 0.5
+# 6단계 최종 평가로 채택한 모델 (test F1 0.977, results/final_test.json). 백엔드는 이 이름을 사용
+RECOMMENDED_DETECTOR = "autoencoder"
 
 
 @dataclass

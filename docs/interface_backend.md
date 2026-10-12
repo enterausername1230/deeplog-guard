@@ -1,7 +1,8 @@
 # 추론 인터페이스 안내 (안명근 · 이동준 참고)
 
 - 작성: 옥상민 / 2026-10-12
-- 모델(DeepLog/Autoencoder)이 완성되기 전에도 **같은 인터페이스**로 통계 빈도 베이스라인이 동작하므로, FastAPI·대시보드 연동을 지금 바로 시작할 수 있다. 모델이 나오면 `load_detector("deeplog")` 처럼 이름만 바꾸면 된다.
+- **최종 채택 모델: `autoencoder` (2026-10-12, test F1 0.977).** 코드에서는 `from logguard.models.inference import RECOMMENDED_DETECTOR` 후 `load_detector(RECOMMENDED_DETECTOR)` 를 쓰면 이후 모델이 바뀌어도 수정이 필요 없다.
+- 세 Detector(`statistical_frequency`, `deeplog`, `autoencoder`)는 같은 인터페이스라 비교·시연 때 이름만 바꾸면 된다.
 
 ## 준비
 
@@ -57,7 +58,7 @@ for blk in log.block_ids:                             # 로그 1줄마다
 | `model` | str | `statistical_frequency`, `deeplog`, `autoencoder` |
 | `details` | dict | 판정 근거. 통계 빈도: `event_id, count, threshold, template` / DeepLog: `position, actual{event_id, template, prob, rank}, topk[...]` / Autoencoder: `position, reconstruction_error, threshold, window, worst{offset, actual, reconstructed}` |
 
-- 속도 (CPU, 5단계 최종 설정): 통계 빈도 0.06ms/세션, DeepLog 2.8ms/세션 · 0.53ms/이벤트, Autoencoder 0.12ms/세션 · 0.09ms/이벤트 (목표 p95 1초 대비 여유 큼)
+- 속도 (CPU, 원본 1줄 파싱 + 판정, 10만 줄 측정): Autoencoder p95 **0.10ms** · 약 10,700줄/초, DeepLog p95 0.57ms · 약 1,900줄/초, 통계 빈도 p95 0.08ms. 목표(p95 1초, 500줄/초) 대비 모델 구간은 여유가 크므로 E2E 지연은 HTTP·DB·Slack 쪽에서 관리하면 된다
 - **Autoencoder 사용 가능 (2026-10-12):** `load_detector("autoencoder")`. 최종 모델은 6단계에서 확정
 - **DeepLog 사용 가능 (2026-10-12):** `load_detector("deeplog")`. `details` 예시:
   `{"position": 5, "actual": {"event_id": 13, "template": "Verification succeeded for <:BLK:>", "prob": 0.0003, "rank": 7}, "topk": [{"event_id": 3, "template": "...", "prob": 0.61}, ...]}`

@@ -51,5 +51,13 @@ def normalize(scores: np.ndarray | float, threshold: float) -> np.ndarray:
 
 def save_result(cfg: dict, name: str, payload: dict) -> None:
     res_dir = cfg["paths"]["results_dir"]
-    res_dir.mkdir(parents=True, exist_ok=True)
+    (res_dir / f"{name}.json").parent.mkdir(parents=True, exist_ok=True)
     (res_dir / f"{name}.json").write_text(json.dumps({"model": name, **payload}, indent=2, ensure_ascii=False, default=float))
+
+
+def save_test_scores(cfg: dict, name: str, labels: np.ndarray, scores: np.ndarray, mode: dict) -> None:
+    """6단계 그래프(PR 곡선·점수 분포)용 test 세션 점수. 용량이 커서 git 에 넣지 않는다 (artifacts/eval)."""
+    path = cfg["paths"]["artifacts_dir"] / "eval" / f"{name}.npz"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    np.savez_compressed(path, labels=labels, scores=scores,
+                        threshold=mode.get("threshold", np.nan), mode=mode["mode"])

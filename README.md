@@ -40,7 +40,10 @@ dplngproj/
 │   │   ├── online.py        # 실시간 파서: 로그 1줄 → Event ID, Block ID (백엔드용)
 │   │   └── windows.py       # 슬라이딩 윈도우 (DeepLog / Autoencoder 입력)
 │   ├── baseline/rule_based.py   # 키워드·정규식 + 빈도 임계치 베이스라인
-│   ├── eval/metrics.py      # Precision/Recall/F1, 백분위수 임계치
+│   ├── eval/
+│   │   ├── metrics.py       # Precision/Recall/F1, 백분위수 임계치
+│   │   ├── final_eval.py    # 6단계 test 1회 평가·목표 달성 정리
+│   │   └── figures.py       # 보고서 그래프 → docs/figures/
 │   ├── models/
 │   │   ├── dataset.py       # 세션 → 윈도우 (중복 압축, EOS/UNK)
 │   │   ├── scoring.py       # 세션 점수·임계치 선택·0~1 정규화·결과 저장
@@ -60,7 +63,7 @@ dplngproj/
 │   └── processed/           # 분할 결과
 ├── artifacts/               # drain3/ 상태, models/*.json Detector 설정 (git 포함)
 ├── results/                 # 모델·베이스라인 평가 결과 json
-└── docs/                    # 실행 계획(plan_week4-6.md), 백엔드 인터페이스(interface_backend.md)
+└── docs/                    # 실행 계획(plan_week4-6.md), 백엔드 인터페이스(interface_backend.md), figures/
 ```
 
 ## 시작하기
@@ -100,35 +103,38 @@ make test
 | `data/processed/event_vocab.json` | 모델 입력 인덱스 (0=PAD, 1=UNK, train 에 나온 이벤트만 2부터) |
 | `artifacts/drain3/drain3_state.bin` | FastAPI 에서 `TemplateMiner` 로 로드해 `match()` 로 Event ID 매칭 |
 
-## 현재 결과 (HDFS test, 세션 단위)
+## 최종 결과 (HDFS test, 세션 단위) — 2026-10-12 6단계
 
-데이터: 세션 575,061개 · 이상 16,838개(2.93%) · Drain 템플릿 52개(sim_th 0.85, Loghub 공식 시퀀스와 100% 일치) · random 층화 분할 6:2:2 (seed 42)
+데이터: 세션 575,061개 · 이상 16,838개(2.93%) · Drain 템플릿 52개(sim_th 0.85, Loghub 공식 시퀀스와 100% 일치) · Block ID 층화 분할 6:2:2 (seed 42).
+모든 설정·임계치는 val 로만 선택했고 test 는 마지막에 1회 평가했다 (`results/final_test.{json,csv}`).
 
-| 모델 | 설정 (val F1 최대로 선택) | Precision | Recall | F1 | 파일 |
-|---|---|---|---|---|---|
-| Rule-Based (목표 ② 비교 기준) | 세션 길이 양방향 p99.9 (키워드 조합보다 val F1 높음) | 0.976 | 0.406 | 0.573 | `results/baseline_rule_based.json` |
-| 통계 빈도 베이스라인 (참고) | 이벤트별 빈도 p99.95 | 0.955 | 0.828 | **0.887** | `results/baseline_statistical_frequency.json` |
-| Autoencoder | — | | | | 6단계에서 test 1회 평가 |
-| DeepLog (LSTM) | — | | | | 6단계에서 test 1회 평가 |
+| 방법 | Precision | Recall | F1 (배포 모델) | F1 시드 3개 평균 ± 표준편차 |
+|---|---|---|---|---|
+| Rule-Based (키워드·정규식 + 세션 길이) | 0.976 | 0.406 | 0.573 | — |
+| 통계 빈도 (이벤트별 빈도 임계치) | 0.955 | 0.828 | 0.887 | — |
+| DeepLog + EOS (w=20, LSTM 2×128) | 0.898 | 0.956 | 0.926 | 0.924 ± 0.002 |
+| **Autoencoder + EOS (w=20, 잠재 32) — 최종 채택** | **0.970** | **0.984** | **0.977** | **0.978 ± 0.001** |
 
-- 키워드 규칙은 정상 블록에서도 흔한 WARN(`Got exception while serving`) 때문에 오탐이 많아(F1 0.148) 길이 규칙 단독이 선택됨 → 계획서에서 말한 규칙 기반의 한계
-- 목표 ② (Rule-Based 대비 +10%p) 기준선: **F1 0.673**
+| 계획서 목표 | 결과 | 달성 |
+|---|---|---|
+| ① F1 ≥ 0.85 | 0.977 | ✅ |
+| ② Rule-Based 대비 F1 +10%p | +40.4%p (통계 빈도 대비로도 +9.0%p) | ✅ |
+| ③ 추론 p95 ≤ 1초 | 로그 1줄 파싱 + 판정 p95 **0.10ms** (HTTP·DB 제외, E2E 2초는 백엔드 통합 후 측정) | ✅ (모델 구간) |
+| ④ 500 logs/s | 단일 스레드 약 10,700 줄/초 (Locust 부하테스트는 통합 후) | ✅ (모델 구간) |
+| ⑤ 두 모델 비교 후 채택 | Autoencoder 채택 (DeepLog 대비 F1 +5.4%p 시드 평균, 추론 약 5배 빠름) | ✅ |
+| ⑥ 대시보드·Slack | 이동준 담당, 진행 예정 | — |
 
-### 개발 중 비교 (val, test 는 6단계에서 1회)
+| 방법별 F1 | Precision-Recall |
+|---|---|
+| ![F1](docs/figures/f1_comparison.png) | ![PR](docs/figures/pr_curves.png) |
+| **EOS 효과** | **Autoencoder 점수 분포** |
+| ![EOS](docs/figures/eos_ablation.png) | ![dist](docs/figures/score_dist_ae.png) |
 
-5단계 튜닝 후 최종 설정 기준. 임계치 후보는 모든 방법 공통으로 99.0~99.95 (0.05 간격) + 99.99, 100.
-
-| 모델 | 설정 | Precision | Recall | F1 (seed 42) | F1 시드 3개 평균 ± 표준편차 |
-|---|---|---|---|---|---|
-| Rule-Based | 세션 길이 양방향 p99.9 | 0.985 | 0.409 | 0.578 | (결정적) |
-| 통계 빈도 | 이벤트별 빈도 p99.95 | 0.959 | 0.828 | 0.888 | (결정적) |
-| DeepLog, EOS 없음 | w=20, hidden 128 | 0.848 | 0.803 | 0.825 | — |
-| DeepLog + EOS | w=20, hidden 128, −log P p99.65 | 0.894 | 0.965 | 0.928 | 0.927 ± 0.001 |
-| Autoencoder, EOS 없음 | w=20, 잠재 32 | 0.961 | 0.809 | 0.879 | — |
-| **Autoencoder + EOS** | w=20, 잠재 32, 재구성 오차 p99.9 | **0.967** | **0.977** | **0.972** | **0.975 ± 0.003** |
-
-- 튜닝 전체 결과: `results/tuning_{deeplog,autoencoder}{,_summary}.csv` (조합 6개 × 시드 3개)
-- 추론 지연 (CPU, 단일 호출): Autoencoder 0.09ms/이벤트, DeepLog 0.53ms/이벤트
+주요 발견
+- **EOS(세션 종료) 토큰**: 이상 세션의 약 37%가 중간에 끊긴 세션이라, 다음 이벤트만 보는 기본 모델은 놓친다. EOS 추가로 test F1 DeepLog 0.821 → 0.926, Autoencoder 0.884 → 0.977
+- **Drain 튜닝**: 기본 sim_th 0.5 는 이상 신호(`Interrupted`)를 정상 이벤트에 합쳐버림 → 0.85 로 수정
+- **val ↔ test 일치**: Autoencoder val 0.972 / test 0.977 — val 기반 선택이 과적합되지 않음
+- 과정 상세: `docs/plan_week4-6.md`, 실험 결과: `results/`
 
 ## 협업 규칙
 
