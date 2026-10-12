@@ -1,7 +1,7 @@
-"""모니터링 대시보드·알림 (담당: 이동준).
+"""Streamlit 모니터링 대시보드 (담당: 이동준).
 
-예정 모듈
-  app.py   : Streamlit. KPI 카드 / 이상 스코어 추이 / Slack 알림 이력 / 실시간 로그 스트림 테이블
-  slack.py : Slack Incoming Webhook (URL 은 .env 의 SLACK_WEBHOOK_URL, 절대 커밋 금지)
-SQLite 이력을 읽기 전용으로 조회한다. 템플릿 텍스트는 data/interim/hdfs_templates.csv 참조.
+app.py: 세션 KPI, 스코어 추이, 추론 윈도우·세션 상세, 알림 이력, 모델 평가.
+data.py: 읽기 전용 SQLite 조회와 합성 데모 데이터.
+schema.sql: 백엔드 연동 규격. predictions는 윈도우 단위, 판정은 세션 OR.
+알림 전송·중복 방지는 백엔드 알림 작업자가 담당하며 대시보드는 이력만 조회한다.
 """

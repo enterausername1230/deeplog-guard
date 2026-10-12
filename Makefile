@@ -26,3 +26,7 @@ test:
 
 clean-data:       ## 파생 데이터 삭제 (원본은 유지)
 	rm -rf data/interim/* data/processed/* artifacts/drain3
+
+.PHONY: dashboard
+dashboard:       ## Streamlit 모니터링 대시보드
+	$(PY) -m streamlit run src/logguard/dashboard/app.py

@@ -42,3 +42,9 @@ baseline:
   error_levels: [WARN, ERROR, FATAL]
   # 빈도 임계치 후보 (정상 학습 세션 분포의 백분위수) → 검증셋 F1 최대값으로 선택
   percentile_grid: [99.0, 99.5, 99.9, 99.95, 99.99, 100.0]
+
+dashboard:
+  database_path: data/logguard.sqlite3
+  refresh_seconds: 5
+  max_rows: 20000
+  default_period_minutes: 60
