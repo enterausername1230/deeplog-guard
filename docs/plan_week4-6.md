@@ -62,6 +62,21 @@
 | `models/inference.py` | `Detector` 인터페이스 + 통계 빈도 구현. 저장본으로 test F1 0.8873 재현, 0.06ms/세션 |
 | 백엔드 인계 | `docs/interface_backend.md` |
 
+### 3단계 완료 (2026-10-12) — DeepLog (val 기준, test 는 6단계)
+
+| 항목 | 결과 |
+|---|---|
+| 모델 | Embedding 16 → LSTM 2층 64 → 22 클래스, 파라미터 56,054개, CPU 학습 22초 (20 에폭) |
+| 성능 (val) | **F1 0.912** (P 0.855, R 0.977) — 통계 빈도 0.888, Rule-Based 0.578 보다 높음 |
+| EOS 효과 | EOS 없음 F1 0.824 → EOS 추가 0.912 (**+8.8%p**, Recall 0.81 → 0.98) |
+| 판정 방식 | 백분위수 임계치(p99.5) F1 0.912 > top-k(k=5) 0.885 → 백분위수 채택 |
+| 점수 정의 | 계획서의 1 − P 대신 −log P 사용 (같은 순서, float32 에서 1 에 붙는 문제 없음) |
+| 에폭 | 50/100/150 에폭도 F1 0.90~0.91 로 동일 → 20 에폭 유지 |
+| 세션 집계 | 최댓값 0.912 > top2 합 0.765 > 평균 0.727 > 합 0.595 → 최댓값 유지 |
+| 한계 | Precision 0.855 (오탐 559건, 정상인데 드문 순서: Verification succeeded, allocateBlock 위치 등). 5단계에서 윈도우 15/20, 임계치 후보 세분화(99.3~99.6 구간)로 개선 시도 |
+| 지연 | Detector 단일 호출 CPU 0.74ms/세션, 0.23ms/이벤트 (목표 p95 1초 대비 충분) |
+| 백엔드 | `load_detector("deeplog")` 로 교체 가능. `artifacts/models/deeplog.pt` (234KB) git 포함 |
+
 ## 팀 연계
 
 - **안명근 (Backend):** 2단계에서 `Detector.predict(events) -> score, is_anomaly, topk` 인터페이스를 먼저 공유한다. 모델 완성 전에는 통계 빈도 베이스라인이 같은 인터페이스로 동작하므로 FastAPI 연동을 병렬로 진행할 수 있다.

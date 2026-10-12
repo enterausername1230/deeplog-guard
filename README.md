@@ -46,7 +46,8 @@ dplngproj/
 │   │   ├── scoring.py       # 세션 점수·임계치 선택·0~1 정규화·결과 저장
 │   │   ├── train_utils.py   # 시드·장치·가중 학습 루프
 │   │   ├── inference.py     # Detector 인터페이스 (백엔드용, docs/interface_backend.md)
-│   │   └── (예정) deeplog.py, autoencoder.py
+│   │   ├── deeplog.py       # DeepLog LSTM + EOS, 학습·val 평가·Detector
+│   │   └── (예정) autoencoder.py
 │   ├── api/                 # FastAPI 추론 서버 (예정)
 │   └── dashboard/           # Streamlit + Slack (예정)
 ├── tests/                   # pytest (원본 데이터 없이 실행)
@@ -106,10 +107,19 @@ make test
 | Rule-Based (목표 ② 비교 기준) | 세션 길이 양방향 p99.9 (키워드 조합보다 val F1 높음) | 0.976 | 0.406 | 0.573 | `results/baseline_rule_based.json` |
 | 통계 빈도 베이스라인 (참고) | 이벤트별 빈도 p99.95 | 0.955 | 0.828 | **0.887** | `results/baseline_statistical_frequency.json` |
 | Autoencoder | — | | | | 예정 |
-| DeepLog (LSTM) | — | | | | 예정 |
+| DeepLog (LSTM) | — | | | | 6단계에서 test 1회 평가 |
 
 - 키워드 규칙은 정상 블록에서도 흔한 WARN(`Got exception while serving`) 때문에 오탐이 많아(F1 0.148) 길이 규칙 단독이 선택됨 → 계획서에서 말한 규칙 기반의 한계
 - 목표 ② (Rule-Based 대비 +10%p) 기준선: **F1 0.673**
+
+### 개발 중 비교 (val, test 는 6단계에서 1회)
+
+| 모델 | 설정 | Precision | Recall | F1 |
+|---|---|---|---|---|
+| Rule-Based | 세션 길이 양방향 p99.9 | 0.985 | 0.409 | 0.578 |
+| 통계 빈도 | 이벤트별 빈도 p99.95 | 0.959 | 0.828 | 0.888 |
+| DeepLog, EOS 없음 | w=10, −log P p99.5 | 0.836 | 0.811 | 0.824 |
+| **DeepLog + EOS** | w=10, −log P p99.5 | 0.855 | 0.977 | **0.912** |
 - 통계 빈도 베이스라인이 이미 목표 F1 0.85 를 넘으므로, 딥러닝 모델은 **0.887 이상**을 실질적인 기준으로 삼는다
 
 ## 협업 규칙

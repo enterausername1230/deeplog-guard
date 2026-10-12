@@ -82,3 +82,28 @@ def test_online_parser_uses_saved_drain_state():
     assert a.event_id == b.event_id is not None and c.event_id not in (None, a.event_id)
     assert a.block_ids == ["blk_38865049064139660"]
     assert p.parse_line("totally new log format").event_id is None
+
+
+def test_deeplog_learns_and_detects_truncation():
+    """정상 패턴 1→2→3→EOS 만 학습하면, 1→2 에서 끊긴 세션(EOS 가 너무 이름)을 이상으로 본다."""
+    from logguard.models.deeplog import DeepLogDetector, DeepLogModel, window_scores
+    torch.manual_seed(0)
+    vocab = {"event_to_index": {"1": 3, "2": 4, "3": 5}}
+    seqs = encode_sessions(pd.DataFrame({"events": [np.array([1, 2, 3])] * 50}), vocab, add_eos=True)
+    ws = build_windows(seqs, w=3, with_next=True)
+    model = DeepLogModel(num_classes=6, embed_dim=8, hidden_size=16, num_layers=1)
+    loss = lambda m, xb, yb: torch.nn.functional.cross_entropy(m(xb), yb, reduction="none")
+    train_weighted(model, (ws.X, ws.y), sample_weights(ws.weight), loss,
+                   epochs=150, batch_size=8, lr=0.05, device=torch.device("cpu"), log_every=0)
+    nll, rank = window_scores(model, ws.X, ws.y)
+    assert (rank == 0).all()                                    # 정상 패턴은 모두 1등 예측
+
+    meta = {"window_size": 3, "add_eos": True, "mode": "topk", "k": 1, "num_classes": 6,
+            "event_to_index": vocab["event_to_index"], "templates": {"1": "A", "2": "B", "3": "C"}}
+    det = DeepLogDetector(model, meta)
+    assert not det.score_session([1, 2, 3]).is_anomaly
+    cut = det.score_session([1, 2])                             # 3 이 와야 하는데 EOS
+    assert cut.is_anomaly and cut.details["actual"]["template"].startswith("<EOS")
+    assert not det.score_event([1, 2]).is_anomaly               # 스트리밍 중엔 아직 끝난 게 아니므로 정상
+    assert det.score_event([1, 3]).is_anomaly                   # 2 대신 3 → 순서 이상
+    assert det.score_session([1, 7]).reason == "unknown_event"

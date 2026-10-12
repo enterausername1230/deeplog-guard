@@ -9,7 +9,8 @@
 현재 구현
   statistical_frequency : 통계 빈도 베이스라인 (모델 완성 전 연동용). 학습 정상 세션의 이벤트별 횟수
                           p 백분위수를 넘거나, 정상에 없던 이벤트가 나오면 이상.
-  (예정) deeplog, autoencoder
+  deeplog               : LSTM 다음 이벤트 예측 (logguard.models.deeplog), artifacts/models/deeplog.pt
+  (예정) autoencoder
 
 사용 예 (FastAPI):
     detector = load_detector("statistical_frequency")
@@ -114,6 +115,12 @@ REGISTRY = {"statistical_frequency": StatisticalFrequencyDetector}
 
 def load_detector(name: str = "statistical_frequency", cfg: dict | None = None) -> Detector:
     cfg = cfg or load_config()
+    if name == "deeplog":
+        from logguard.models.deeplog import DeepLogDetector
+        path = cfg["paths"]["artifacts_dir"] / "models" / "deeplog.pt"
+        if not path.exists():
+            raise FileNotFoundError(f"{path} 없음 → python -m logguard.models.deeplog")
+        return DeepLogDetector.load(path)
     path = cfg["paths"]["artifacts_dir"] / "models" / f"{name}.json"
     if not path.exists():
         raise FileNotFoundError(f"{path} 없음 → python -m logguard.models.inference --export {name}")

@@ -24,6 +24,8 @@ artifacts/models/*
 *.pt
 *.pth
 *.ckpt
+# 단, 백엔드 연동용 최종 소형 모델(수백 KB)은 공유
+!artifacts/models/*.pt
 
 # 런타임
 *.db

@@ -42,3 +42,20 @@ baseline:
   error_levels: [WARN, ERROR, FATAL]
   # 빈도 임계치 후보 (정상 학습 세션 분포의 백분위수) → 검증셋 F1 최대값으로 선택
   percentile_grid: [99.0, 99.5, 99.9, 99.95, 99.99, 100.0]
+
+# 모델 공통: 임계치 = val 정상 세션 점수의 백분위수 후보 (val F1 최대로 선택)
+threshold:
+  percentile_grid: [99.0, 99.5, 99.9, 99.95, 99.99, 100.0]
+
+deeplog:
+  window_size: 10         # 5단계에서 {10, 15, 20} 튜닝
+  add_eos: true           # 세션 끝 EOS 토큰 (EDA 결론 #4)
+  embed_dim: 16
+  hidden_size: 64         # DeepLog 논문 설정
+  num_layers: 2
+  epochs: 20
+  batch_size: 512
+  lr: 0.002
+  weight_power: 1.0       # 1: 원본 윈도우 분포 그대로, 0: 고유 윈도우 균등
+  topk_grid: [1, 2, 3, 4, 5, 6, 7, 8, 9]
+  device: cpu             # 모델이 작아 CPU 가 더 빠를 수 있음 (auto 로 MPS 사용 가능)

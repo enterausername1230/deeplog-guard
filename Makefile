@@ -1,6 +1,6 @@
 PY ?= .venv/bin/python
 
-.PHONY: setup download parse split baseline drain-eval export-detector data test clean-data
+.PHONY: setup download parse split baseline drain-eval export-detector deeplog data test clean-data
 
 setup:            ## 가상환경 + 의존성 설치 (uv 필요)
 	uv venv --python 3.11 .venv
@@ -24,6 +24,10 @@ drain-eval:       ## Drain 검증(공식 정답 대비)·sim_th/depth 튜닝 →
 
 export-detector:  ## 백엔드용 Detector 내보내기 + test 재현 검증 → artifacts/models/
 	$(PY) -m logguard.models.inference --export statistical_frequency
+
+deeplog:          ## DeepLog 학습·val 평가 + EOS 제거 비교 → results/deeplog*.json, artifacts/models/deeplog.pt
+	$(PY) -m logguard.models.deeplog
+	$(PY) -m logguard.models.deeplog --no-eos
 
 data: download parse split   ## 데이터 파이프라인 전체
 
