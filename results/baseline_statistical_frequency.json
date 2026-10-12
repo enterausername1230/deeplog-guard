@@ -45,6 +45,39 @@
       "tn": 111524
     },
     {
+      "percentile": 99.75,
+      "rules": "frequency",
+      "precision": 0.9359,
+      "recall": 0.8283,
+      "f1": 0.8788,
+      "tp": 2789,
+      "fp": 191,
+      "fn": 578,
+      "tn": 111453
+    },
+    {
+      "percentile": 99.8,
+      "rules": "frequency",
+      "precision": 0.9359,
+      "recall": 0.8283,
+      "f1": 0.8788,
+      "tp": 2789,
+      "fp": 191,
+      "fn": 578,
+      "tn": 111453
+    },
+    {
+      "percentile": 99.85,
+      "rules": "frequency",
+      "precision": 0.9359,
+      "recall": 0.8283,
+      "f1": 0.8788,
+      "tp": 2789,
+      "fp": 191,
+      "fn": 578,
+      "tn": 111453
+    },
+    {
       "percentile": 99.9,
       "rules": "frequency",
       "precision": 0.9359,
@@ -56,7 +89,18 @@
       "tn": 111453
     },
     {
-      "percentile": 99.5,
+      "percentile": 99.7,
+      "rules": "frequency",
+      "precision": 0.8697,
+      "recall": 0.8283,
+      "f1": 0.8485,
+      "tp": 2789,
+      "fp": 418,
+      "fn": 578,
+      "tn": 111226
+    },
+    {
+      "percentile": 99.3,
       "rules": "frequency",
       "precision": 0.8636,
       "recall": 0.8292,
@@ -67,37 +111,37 @@
       "tn": 111203
     },
     {
-      "percentile": 99.0,
+      "percentile": 99.35,
       "rules": "frequency",
-      "precision": 0.6956,
+      "precision": 0.8636,
       "recall": 0.8292,
-      "f1": 0.7565,
+      "f1": 0.8461,
       "tp": 2792,
-      "fp": 1222,
+      "fp": 441,
       "fn": 575,
-      "tn": 110422
+      "tn": 111203
     },
     {
-      "percentile": 99.99,
+      "percentile": 99.4,
       "rules": "frequency",
-      "precision": 0.984,
-      "recall": 0.4384,
-      "f1": 0.6065,
-      "tp": 1476,
-      "fp": 24,
-      "fn": 1891,
-      "tn": 111620
+      "precision": 0.8636,
+      "recall": 0.8292,
+      "f1": 0.8461,
+      "tp": 2792,
+      "fp": 441,
+      "fn": 575,
+      "tn": 111203
     },
     {
-      "percentile": 100.0,
+      "percentile": 99.45,
       "rules": "frequency",
-      "precision": 0.9987,
-      "recall": 0.2272,
-      "f1": 0.3702,
-      "tp": 765,
-      "fp": 1,
-      "fn": 2602,
-      "tn": 111643
+      "precision": 0.8636,
+      "recall": 0.8292,
+      "f1": 0.8461,
+      "tp": 2792,
+      "fp": 441,
+      "fn": 575,
+      "tn": 111203
     }
   ]
 }

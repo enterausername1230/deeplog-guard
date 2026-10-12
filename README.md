@@ -48,7 +48,8 @@ dplngproj/
 │   │   ├── inference.py     # Detector 인터페이스 (백엔드용, docs/interface_backend.md)
 │   │   ├── deeplog.py       # DeepLog LSTM + EOS, 학습·val 평가·Detector
 │   │   ├── autoencoder.py   # MLP Autoencoder (원-핫 윈도우 재구성), Detector
-│   │   └── seed_study.py    # 시드별 성능 편차 측정
+│   │   ├── seed_study.py    # 시드별 성능 편차 측정
+│   │   └── tune.py          # 하이퍼파라미터 그리드 × 시드 튜닝 (val)
 │   ├── api/                 # FastAPI 추론 서버 (예정)
 │   └── dashboard/           # Streamlit + Slack (예정)
 ├── tests/                   # pytest (원본 데이터 없이 실행)
@@ -115,18 +116,19 @@ make test
 
 ### 개발 중 비교 (val, test 는 6단계에서 1회)
 
-| 모델 | 설정 | Precision | Recall | F1 |
-|---|---|---|---|---|
-| Rule-Based | 세션 길이 양방향 p99.9 | 0.985 | 0.409 | 0.578 |
-| 통계 빈도 | 이벤트별 빈도 p99.95 | 0.959 | 0.828 | 0.888 |
-| DeepLog, EOS 없음 | w=10, −log P p99.5 | 0.836 | 0.811 | 0.824 |
-| DeepLog + EOS | w=10, −log P p99.5 | 0.855 | 0.977 | 0.912 |
-| Autoencoder, EOS 없음 | w=10, 재구성 오차 p99.9 | 0.954 | 0.686 | 0.798 |
-| **Autoencoder + EOS** | w=10, 재구성 오차 p99.9, 300 에폭 cosine | 0.965 | 0.918 | **0.941** |
+5단계 튜닝 후 최종 설정 기준. 임계치 후보는 모든 방법 공통으로 99.0~99.95 (0.05 간격) + 99.99, 100.
 
-시드 3개(42·43·44) val F1: DeepLog **0.900 ± 0.018**, Autoencoder **0.927 ± 0.015** (`results/seed_study_*.csv`).
-시드 편차가 모델 간 차이와 비슷한 크기라 최종 비교는 6단계에서 여러 시드 평균으로 한다.
-- 통계 빈도 베이스라인이 이미 목표 F1 0.85 를 넘으므로, 딥러닝 모델은 **0.887 이상**을 실질적인 기준으로 삼는다
+| 모델 | 설정 | Precision | Recall | F1 (seed 42) | F1 시드 3개 평균 ± 표준편차 |
+|---|---|---|---|---|---|
+| Rule-Based | 세션 길이 양방향 p99.9 | 0.985 | 0.409 | 0.578 | (결정적) |
+| 통계 빈도 | 이벤트별 빈도 p99.95 | 0.959 | 0.828 | 0.888 | (결정적) |
+| DeepLog, EOS 없음 | w=20, hidden 128 | 0.848 | 0.803 | 0.825 | — |
+| DeepLog + EOS | w=20, hidden 128, −log P p99.65 | 0.894 | 0.965 | 0.928 | 0.927 ± 0.001 |
+| Autoencoder, EOS 없음 | w=20, 잠재 32 | 0.961 | 0.809 | 0.879 | — |
+| **Autoencoder + EOS** | w=20, 잠재 32, 재구성 오차 p99.9 | **0.967** | **0.977** | **0.972** | **0.975 ± 0.003** |
+
+- 튜닝 전체 결과: `results/tuning_{deeplog,autoencoder}{,_summary}.csv` (조합 6개 × 시드 3개)
+- 추론 지연 (CPU, 단일 호출): Autoencoder 0.09ms/이벤트, DeepLog 0.53ms/이벤트
 
 ## 협업 규칙
 

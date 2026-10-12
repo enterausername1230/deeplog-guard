@@ -41,17 +41,19 @@ baseline:
   # 해당 레벨로 한 번이라도 찍힌 템플릿은 '오류 이벤트'로 간주
   error_levels: [WARN, ERROR, FATAL]
   # 빈도 임계치 후보 (정상 학습 세션 분포의 백분위수) → 검증셋 F1 최대값으로 선택
-  percentile_grid: [99.0, 99.5, 99.9, 99.95, 99.99, 100.0]
+  # 5단계: 모델과 같은 세분화 그리드 사용 (공정 비교)
+  percentile_grid: [99.0, 99.05, 99.1, 99.15, 99.2, 99.25, 99.3, 99.35, 99.4, 99.45, 99.5, 99.55, 99.6, 99.65, 99.7, 99.75, 99.8, 99.85, 99.9, 99.95, 99.99, 100.0]
 
 # 모델 공통: 임계치 = val 정상 세션 점수의 백분위수 후보 (val F1 최대로 선택)
 threshold:
-  percentile_grid: [99.0, 99.5, 99.9, 99.95, 99.99, 100.0]
+  # 5단계: 99.0~99.95 를 0.05 간격으로 세분화 (기존 99.5 -> 99.9 사이 점프가 시드 편차의 원인)
+  percentile_grid: [99.0, 99.05, 99.1, 99.15, 99.2, 99.25, 99.3, 99.35, 99.4, 99.45, 99.5, 99.55, 99.6, 99.65, 99.7, 99.75, 99.8, 99.85, 99.9, 99.95, 99.99, 100.0]
 
 deeplog:
-  window_size: 10         # 5단계에서 {10, 15, 20} 튜닝
+  window_size: 20         # 5단계 튜닝 결과 (results/tuning_deeplog_summary.csv): w=20, hidden 128 이 시드 3개 평균 최고
   add_eos: true           # 세션 끝 EOS 토큰 (EDA 결론 #4)
   embed_dim: 16
-  hidden_size: 64         # DeepLog 논문 설정
+  hidden_size: 128        # 논문 기본 64 보다 128 이 평균 val F1 높음 (0.915 -> 0.927)
   num_layers: 2
   epochs: 20
   batch_size: 512
@@ -62,12 +64,22 @@ deeplog:
   device: cpu             # 모델이 작아 CPU 가 더 빠를 수 있음 (auto 로 MPS 사용 가능)
 
 autoencoder:
-  window_size: 10         # 각 이벤트로 끝나는 윈도우 (5단계에서 튜닝)
+  window_size: 20         # 5단계 튜닝 결과 (results/tuning_autoencoder_summary.csv): w=20, 잠재 32 가 시드 3개 평균 최고
   add_eos: true
-  hidden_dims: [64, 16]   # 220 -> 64 -> 16(잠재) -> 64 -> 220
+  hidden_dims: [64, 32]   # 440 -> 64 -> 32(잠재) -> 64 -> 440
   epochs: 300             # 30 에폭 F1 0.747 -> 300 에폭 0.94 (CPU 약 20초)
   batch_size: 512
   lr: 0.002
   lr_schedule: cosine     # 고정 학습률은 후반 loss 튐. 시드 3개 평균 val F1 0.916 -> 0.927
   weight_power: 1.0
   device: cpu
+
+# 5단계 튜닝 그리드 (python -m logguard.models.tune --model <name>)
+tuning:
+  seeds: [42, 43, 44]
+  deeplog:
+    window_size: [10, 15, 20]
+    hidden_size: [64, 128]
+  autoencoder:
+    window_size: [10, 15, 20]
+    hidden_dims: [[64, 16], [64, 32]]

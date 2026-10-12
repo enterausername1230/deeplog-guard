@@ -65,6 +65,39 @@
       "tn": 111623
     },
     {
+      "percentile": 99.75,
+      "rules": "length",
+      "precision": 0.9239,
+      "recall": 0.4185,
+      "f1": 0.576,
+      "tp": 1409,
+      "fp": 116,
+      "fn": 1958,
+      "tn": 111528
+    },
+    {
+      "percentile": 99.8,
+      "rules": "length",
+      "precision": 0.9239,
+      "recall": 0.4185,
+      "f1": 0.576,
+      "tp": 1409,
+      "fp": 116,
+      "fn": 1958,
+      "tn": 111528
+    },
+    {
+      "percentile": 99.85,
+      "rules": "length",
+      "precision": 0.9239,
+      "recall": 0.4185,
+      "f1": 0.576,
+      "tp": 1409,
+      "fp": 116,
+      "fn": 1958,
+      "tn": 111528
+    },
+    {
       "percentile": 99.5,
       "rules": "length",
       "precision": 0.8306,
@@ -76,81 +109,48 @@
       "tn": 111354
     },
     {
-      "percentile": 100.0,
+      "percentile": 99.55,
       "rules": "length",
-      "precision": 1.0,
-      "recall": 0.3626,
-      "f1": 0.5323,
-      "tp": 1221,
-      "fp": 0,
-      "fn": 2146,
-      "tn": 111644
+      "precision": 0.8306,
+      "recall": 0.4223,
+      "f1": 0.56,
+      "tp": 1422,
+      "fp": 290,
+      "fn": 1945,
+      "tn": 111354
     },
     {
-      "percentile": 99.99,
+      "percentile": 99.6,
       "rules": "length",
-      "precision": 0.9927,
-      "recall": 0.3632,
-      "f1": 0.5319,
-      "tp": 1223,
-      "fp": 9,
-      "fn": 2144,
-      "tn": 111635
+      "precision": 0.8306,
+      "recall": 0.4223,
+      "f1": 0.56,
+      "tp": 1422,
+      "fp": 290,
+      "fn": 1945,
+      "tn": 111354
     },
     {
-      "percentile": 99.0,
+      "percentile": 99.65,
       "rules": "length",
-      "precision": 0.6321,
-      "recall": 0.444,
-      "f1": 0.5216,
-      "tp": 1495,
-      "fp": 870,
-      "fn": 1872,
-      "tn": 110774
+      "precision": 0.8306,
+      "recall": 0.4223,
+      "f1": 0.56,
+      "tp": 1422,
+      "fp": 290,
+      "fn": 1945,
+      "tn": 111354
     },
     {
-      "percentile": 99.0,
-      "rules": "keyword+length",
-      "precision": 0.1027,
-      "recall": 0.8548,
-      "f1": 0.1834,
-      "tp": 2878,
-      "fp": 25136,
-      "fn": 489,
-      "tn": 86508
-    },
-    {
-      "percentile": 99.9,
-      "rules": "keyword+length",
-      "precision": 0.1027,
-      "recall": 0.8521,
-      "f1": 0.1833,
-      "tp": 2869,
-      "fp": 25067,
-      "fn": 498,
-      "tn": 86577
-    },
-    {
-      "percentile": 99.95,
-      "rules": "keyword+length",
-      "precision": 0.1027,
-      "recall": 0.8521,
-      "f1": 0.1833,
-      "tp": 2869,
-      "fp": 25067,
-      "fn": 498,
-      "tn": 86577
-    },
-    {
-      "percentile": 99.5,
-      "rules": "keyword+length",
-      "precision": 0.1025,
-      "recall": 0.853,
-      "f1": 0.1831,
-      "tp": 2872,
-      "fp": 25136,
-      "fn": 495,
-      "tn": 86508
+      "percentile": 99.7,
+      "rules": "length",
+      "precision": 0.8306,
+      "recall": 0.4223,
+      "f1": 0.56,
+      "tp": 1422,
+      "fp": 290,
+      "fn": 1945,
+      "tn": 111354
     }
   ],
   "error_event_ids": [
