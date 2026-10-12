@@ -19,5 +19,7 @@ locust>=2.29
 streamlit>=1.36
 requests>=2.32
 
-# 개발
+# 개발 · 노트북
 pytest>=8.2
+matplotlib>=3.8
+ipykernel>=6.29

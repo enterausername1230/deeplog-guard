@@ -88,3 +88,6 @@ def test_rule_based():
     assert flags["keyword"].tolist() == [False, True, False]
     assert flags["length"].tolist() == [False, False, True]
     assert flags["frequency"].tolist() == [False, True, True]
+    # 정상 최소 길이(1)보다 짧을 수는 없으니 q=100 에선 짧은 쪽 규칙이 안 걸리고, 학습 길이 2~3 기준 q=50 이면 1 은 짧음
+    det2 = RuleBasedDetector({2}, 4).fit(sess([[1, 1], [1, 1, 1], [1, 1], [1, 1, 1]]))
+    assert det2.rule_flags(sess([[1], [1, 1, 1, 1]]), q=50)["length"].tolist() == [True, True]

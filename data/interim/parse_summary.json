@@ -1,7 +1,7 @@
 {
   "lines": 11175629,
   "header_skipped": 0,
-  "templates": 46,
+  "templates": 52,
   "sessions": 575061,
   "sessions_unlabeled_dropped": 0,
   "anomaly_sessions": 16838,
@@ -16,5 +16,5 @@
     "75%": 20.0,
     "max": 298.0
   },
-  "elapsed_sec": 77.3
+  "elapsed_sec": 77.9
 }

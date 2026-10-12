@@ -36,6 +36,7 @@ dplngproj/
 │   │   ├── download.py      # HDFS_v1 다운로드·압축 해제
 │   │   ├── parse.py         # Drain3 파싱 → 라인/템플릿/세션 테이블 + Drain 상태 저장
 │   │   ├── split.py         # Block ID 단위 train/val/test 분할 + 이벤트 어휘
+│   │   ├── drain_tuning.py  # Loghub 공식 템플릿 대비 Drain 검증·sim_th/depth 튜닝
 │   │   └── windows.py       # 슬라이딩 윈도우 (DeepLog / Autoencoder 입력)
 │   ├── baseline/rule_based.py   # 키워드·정규식 + 빈도 임계치 베이스라인
 │   ├── eval/metrics.py      # Precision/Recall/F1, 백분위수 임계치
@@ -43,14 +44,14 @@ dplngproj/
 │   ├── api/                 # FastAPI 추론 서버 (예정)
 │   └── dashboard/           # Streamlit + Slack (예정)
 ├── tests/                   # pytest (원본 데이터 없이 실행)
-├── notebooks/               # EDA·실험 노트북
+├── notebooks/               # EDA·실험 노트북 (01_eda.ipynb: 데이터 점검·Drain 검증)
 ├── data/                    # ⚠️ git 미포함 — `make data` 로 생성
 │   ├── raw/HDFS_v1/         # HDFS.log (1.5GB), preprocessed/anomaly_label.csv
 │   ├── interim/             # 파싱 결과
 │   └── processed/           # 분할 결과
 ├── artifacts/drain3/        # 온라인 추론용 Drain3 상태 (git 포함)
 ├── results/                 # 모델·베이스라인 평가 결과 json
-└── docs/                    # 계획서 등 문서
+└── docs/                    # 계획서, 주차별 실행 계획 (plan_week4-6.md)
 ```
 
 ## 시작하기
@@ -92,16 +93,17 @@ make test
 
 ## 현재 결과 (HDFS test, 세션 단위)
 
-데이터: 세션 575,061개 · 이상 16,838개(2.93%) · Drain 템플릿 46개 · random 층화 분할 6:2:2 (seed 42)
+데이터: 세션 575,061개 · 이상 16,838개(2.93%) · Drain 템플릿 52개(sim_th 0.85, Loghub 공식 시퀀스와 100% 일치) · random 층화 분할 6:2:2 (seed 42)
 
 | 모델 | 설정 (val F1 최대로 선택) | Precision | Recall | F1 | 파일 |
 |---|---|---|---|---|---|
-| Rule-Based (목표 ② 비교 기준) | 키워드·레벨 + 세션 길이 p99 | 0.083 | 0.684 | 0.148 | `results/baseline_rule_based.json` |
+| Rule-Based (목표 ② 비교 기준) | 세션 길이 양방향 p99.9 (키워드 조합보다 val F1 높음) | 0.976 | 0.406 | 0.573 | `results/baseline_rule_based.json` |
 | 통계 빈도 베이스라인 (참고) | 이벤트별 빈도 p99.95 | 0.955 | 0.828 | **0.887** | `results/baseline_statistical_frequency.json` |
 | Autoencoder | — | | | | 예정 |
 | DeepLog (LSTM) | — | | | | 예정 |
 
-- 키워드 규칙은 정상 블록에서도 흔한 WARN(`Got exception while serving`) 때문에 오탐이 많다 → 계획서에서 말한 규칙 기반의 한계
+- 키워드 규칙은 정상 블록에서도 흔한 WARN(`Got exception while serving`) 때문에 오탐이 많아(F1 0.148) 길이 규칙 단독이 선택됨 → 계획서에서 말한 규칙 기반의 한계
+- 목표 ② (Rule-Based 대비 +10%p) 기준선: **F1 0.673**
 - 통계 빈도 베이스라인이 이미 목표 F1 0.85 를 넘으므로, 딥러닝 모델은 **0.887 이상**을 실질적인 기준으로 삼는다
 
 ## 협업 규칙

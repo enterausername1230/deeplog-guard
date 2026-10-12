@@ -2,7 +2,8 @@
 
 세션(Block) 단위 규칙:
   R1 keyword   : 오류 이벤트(템플릿에 Error/Failed/Exception 등 키워드, 또는 WARN/ERROR 레벨)가 1회 이상 발생
-  R2 length    : 세션 길이 > 정상 학습 세션 길이의 p 백분위수
+  R2 length    : 세션 길이 > 정상 학습 세션 길이의 p 백분위수, 또는 < (100-p) 백분위수
+                 (이상 세션의 약 37%는 정상 최소 길이 13 보다 짧게 끊긴 세션)
   R3 frequency : 어떤 이벤트든 세션 내 발생 횟수 > 정상 학습 세션에서 그 이벤트 횟수의 p 백분위수
                  (정상 학습 세션에 한 번도 없던 이벤트는 임계치 0 → 등장만 해도 이상)
 
@@ -73,11 +74,12 @@ class RuleBasedDetector:
 
     def rule_flags(self, sessions: pd.DataFrame, q: float) -> dict[str, np.ndarray]:
         counts = count_matrix(sessions, self.n_events)
-        len_th = np.percentile(self.train_lengths, q)
+        len_hi = np.percentile(self.train_lengths, q)
+        len_lo = np.percentile(self.train_lengths, 100 - q)
         freq_th = np.percentile(self.train_counts, q, axis=0)
         return {
             "keyword": counts[:, self.error_ids].sum(axis=1) > 0 if len(self.error_ids) else np.zeros(len(sessions), bool),
-            "length": sessions["length"].to_numpy() > len_th,
+            "length": (sessions["length"].to_numpy() > len_hi) | (sessions["length"].to_numpy() < len_lo),
             "frequency": (counts > freq_th).any(axis=1),
         }
 
