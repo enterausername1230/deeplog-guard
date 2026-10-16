@@ -1,0 +1,11 @@
+# Backend-only settings. Paths are relative to the repository root.
+database: artifacts/api/logguard.sqlite
+drain_config: configs/drain3.ini
+drain_state: artifacts/drain3/drain3_state.bin
+vocab: data/processed/event_vocab.json
+window_size: 10
+max_log_chars: 16384
+sqlite_timeout_seconds: 10
+replay_url: http://127.0.0.1:8000/logs
+replay_rate: 10
+replay_timeout_seconds: 10

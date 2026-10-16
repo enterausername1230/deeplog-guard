@@ -1,0 +1,9 @@
+# Minimal backend environment; the AI owner's torch environment is not required.
+fastapi>=0.111,<1
+uvicorn[standard]>=0.30,<1
+httpx>=0.27,<1
+pyyaml>=6,<7
+drain3==0.9.11
+pytest>=8,<10
+locust>=2.29,<3
+# Optional: pandas and pyarrow for replay --test-sessions.
