@@ -10,8 +10,13 @@ RAW = '081109 203615 148 INFO dfs.DataNode$PacketResponder: PacketResponder 1 fo
 
 @pytest.fixture
 def settings(tmp_path):
+    """임시 DB 를 쓰는 설정. 기존 테스트는 "모델 없이 수집만" 동작을 검사하므로 model 을 명시적으로 끈다.
+
+    (2026-10-20: configs/api.yaml 의 기본 model 이 autoencoder 가 되어, 이 줄이 없으면 실제 모델이 연결된다)
+    """
     cfg = load_settings()
     cfg['database'] = tmp_path / 'logs.sqlite'
+    cfg['model'] = None
     return cfg
 
 

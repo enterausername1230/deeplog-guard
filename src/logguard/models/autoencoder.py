@@ -188,6 +188,18 @@ class AutoencoderDetector(Detector):
         seq = self._encode(history, closed=False)
         return self._judge(list(history), seq, np.array([len(seq) - 1]))
 
+    def score_close(self, history: Sequence[int | None]) -> DetectionResult:
+        """세션 종료 판정: 이력 끝에 EOS 를 붙이고 "EOS 로 끝나는 윈도우" 하나만 판정한다.
+
+        예) 정상 패턴이 [할당, 수신, 수신완료, …, 삭제] 인데 [할당, 수신] 에서 끝났다면,
+            [… , 할당, 수신, EOS] 윈도우는 학습 때 거의 본 적이 없어 복원 오차가 커진다 → 이상 ("중간에 끊긴 세션").
+        EOS 윈도우에는 직전 w-1 개 이벤트만 들어가므로, 백엔드가 최근 w 개만 넘겨줘도 결과가 정확하다.
+        """
+        # closed=True → encode 가 끝에 EOS 를 붙인다 (모델이 EOS 로 학습된 경우에만, meta["add_eos"])
+        seq = self._encode(history, closed=True)
+        # 판정 위치 = 마지막 칸(= EOS). 앞 이벤트들은 이미 실시간(score_event)으로 판정되었으므로 다시 보지 않는다
+        return self._judge(list(history), seq, np.array([len(seq) - 1]))
+
 
 # --------------------------------------------------------------------------- 학습·평가
 

@@ -53,8 +53,12 @@ dplngproj/
 │   │   ├── autoencoder.py   # MLP Autoencoder (원-핫 윈도우 재구성), Detector
 │   │   ├── seed_study.py    # 시드별 성능 편차 측정
 │   │   └── tune.py          # 하이퍼파라미터 그리드 × 시드 튜닝 (val)
-│   ├── api/                 # FastAPI 추론 서버 (예정)
-│   └── dashboard/           # Streamlit + Slack (예정)
+│   ├── api/                 # 백엔드 (안명근): FastAPI 수신·판정·저장, 로그 재생, Locust
+│   │   ├── main.py          #   POST/GET /logs, POST /sessions/close, GET /sessions, /stats
+│   │   ├── predictor.py     #   모델 연결 어댑터 (Detector → Predictor)
+│   │   ├── schema.sql       #   ★ 통합 DB 규격 (백엔드·대시보드 공용, docs/db_schema.md)
+│   │   └── replay.py        #   HDFS.log 를 순서대로 재생 (--test-sessions, --close-sessions)
+│   └── dashboard/           # 대시보드 (이동준): Streamlit 화면, 읽기 전용 SQLite 조회
 ├── tests/                   # pytest (원본 데이터 없이 실행)
 ├── notebooks/               # EDA·실험 노트북 (01_eda.ipynb: 데이터 점검·Drain 검증)
 ├── data/                    # ⚠️ git 미포함 — `make data` 로 생성
@@ -147,6 +151,17 @@ make test
 
 - Du et al., *DeepLog*, CCS 2017 · He et al., *Drain*, ICWS 2017 · He et al., *Loghub*, arXiv:2008.06448
 
+## 전체 시스템 실행 (백엔드 + 재생 + 대시보드)
+
+```bash
+make api                         # 터미널 1: FastAPI 서버 (Autoencoder 판정, http://127.0.0.1:8000/docs)
+make replay                      # 터미널 2: test 블록 로그 재생 → 끝나면 세션 종료 판정
+make dashboard                   # 터미널 3: Streamlit → 사이드바에서 "SQLite" 선택
+```
+
+- 실시간 경보(로그마다 판정): test F1 0.880 / 세션 종료 판정 포함 최종: test F1 0.977
+- DB 구조: `docs/db_schema.md`, 백엔드 상세: `src/logguard/api/README.md`
+
 ## Streamlit 대시보드
 
 ```bash
@@ -157,35 +172,27 @@ make dashboard
 ```
 
 기본은 **데모 데이터** 모드입니다. DB나 학습된 모델 없이 화면을 확인할 수 있습니다.
-데모 로그·스코어·지연·Slack 이력은 합성 데이터이며, 모델 평가 탭은 실제 `results/*.json`을 읽습니다.
+데모 로그·스코어·지연·Slack 이력은 합성 데이터이며, 모델 평가 탭은 실제 `results/final_test.csv`(6단계 test 결과)를 읽습니다.
 대시보드는 알림을 전송하지 않으며 SQLite를 읽기 전용으로 조회합니다.
 
 - 상단: 관측 세션 수, 이상 세션 수·비율, Slack 전송 성공 수
-- 실시간 모니터링: 모델별 스코어·임계치, 지연 p95, 최근 추론 윈도우, CSV 다운로드
-- 세션 상세: Block ID별 로드된 윈도우 이력과 이벤트 템플릿
+- 실시간 모니터링: 모델별 스코어·임계치(0.5), 지연 p95, 최근 추론 윈도우와 **판정 근거**, CSV 다운로드
+- 세션 상세: Block ID별 윈도우 이력, 세션 종료 판정 여부(진행 중 / 정상 종료 / 끊긴 세션)
 - 알림 이력: 전송 성공·실패·대기 기록
-- 모델 평가: test 세션 단위 Precision/Recall/F1와 혼동행렬 집계값
+- 모델 평가: Rule-Based·통계 빈도·DeepLog·Autoencoder(+EOS 비교)의 test Precision/Recall/F1
 - 사이드바: 데이터 소스, 조회 기간, Block ID 검색, 이상 세션 필터, 자동 갱신
 
-### 백엔드 연동 규격
+### 백엔드 연동 규격 (2026-10-20 통합)
 
-`src/logguard/dashboard/schema.sql`을 DB 규격으로 사용합니다. 백엔드에서 스키마를 생성하고 기록하며,
-대시보드는 생성·수정하지 않습니다. 기본 DB 경로는 `configs/config.yaml`의
-`dashboard.database_path` (`data/logguard.sqlite3`)입니다. 사이드바에서도 경로를 지정할 수 있습니다.
+DB 규격은 백엔드와 공유하는 [`src/logguard/api/schema.sql`](src/logguard/api/schema.sql) 하나이며 설명은
+[`docs/db_schema.md`](docs/db_schema.md)에 있습니다. 백엔드가 테이블을 만들고 기록하며 대시보드는 읽기만 합니다.
+기본 DB 경로는 `configs/config.yaml`의 `dashboard.database_path` (`artifacts/api/logguard.sqlite`, 백엔드와 같은 파일)입니다.
 
-`predictions`는 **추론된 윈도우당 한 행**입니다. `event_id`와 `raw_log`는 해당 윈도우의
-마지막 이벤트·원본 로그입니다. `timestamp`는 Replay 수신 시각을 UTC ISO-8601 형식으로 저장합니다.
-`model_name`, `anomaly_score`, `threshold`, `is_anomaly`, `latency_ms`를 함께 저장합니다.
-`is_anomaly`는 모델이 결정한 판정값을 사용하고, 세션 판정은 **동일 모델·Block ID의 윈도우 OR**로 집계합니다.
-서로 다른 모델의 스코어는 같은 차트에 섞지 않습니다.
-
-알림 전송은 백엔드/알림 작업자가 담당하고, `alerts` 테이블에 전송 시도별 시각·세션·모델·상태·메시지를 기록합니다.
-중복 방지는 작업자에서 처리해야 합니다. `alerts` 테이블이 없으면 빈 알림 이력으로 표시합니다.
-Slack Webhook 비밀값은 기존 규칙대로 환경변수 또는 `.env`에 보관합니다.
+- `logs`: 로그 1줄 × 블록 1개. 대시보드는 판정된 행(`status` normal/anomaly)만 읽습니다
+- `session_results`: 세션 종료(EOS) 판정. 세션 판정 = **윈도우 OR + 종료 판정** (같은 모델·Block ID 기준)
+- `alerts`: Slack 알림 이력. 전송·중복 방지는 Slack 알림 작업자(담당 이동준, 미구현)가 하며, 블록·모델당 1건만 저장됩니다
 
 조회 기간은 **최신 기록 시각**을 기준으로 계산하여 과거 Replay도 조회할 수 있습니다.
-조회 구간에 등장한 세션의 판정은 로드된 전체 이력으로 집계합니다. 같은 블록은 모델별로 별도 집계합니다.
-최대 조회 행 수는 `dashboard.max_rows`이며 상한에 도달하면 경고합니다. 상한 이전 이력은 집계에 포함되지 않습니다.
-세션 종료 신호가 아직 없으므로 실시간 화면은 관측된 세션의 잠정 상태이며, 최종 F1은 모델 평가 탭에서 별도로 제공합니다.
+최대 조회 행 수는 `dashboard.max_rows`이며 상한에 도달하면 경고합니다.
 
 대시보드 검증: `.venv/bin/python -m pytest tests/test_dashboard.py -q`.

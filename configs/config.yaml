@@ -85,7 +85,7 @@ tuning:
     hidden_dims: [[64, 16], [64, 32]]
 
 dashboard:
-  database_path: data/logguard.sqlite3
+  database_path: artifacts/api/logguard.sqlite   # 백엔드 configs/api.yaml 의 database 와 같은 파일 (2026-10-20 통일)
   refresh_seconds: 5
   max_rows: 20000
   default_period_minutes: 60

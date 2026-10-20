@@ -100,6 +100,22 @@ class Detector(ABC):
         """
         return self.score_session(history, closed=False)
 
+    def score_close(self, history: Sequence[int | None]) -> DetectionResult:
+        """세션이 끝났다고 판단된 순간(타임아웃·재생 종료) "이렇게 끝나도 정상인가" 만 판정한다.
+
+        왜 score_session(closed=True) 와 따로 두나?
+            score_session 은 세션 "전체" 이벤트를 받아야 정확하다. 그런데 백엔드는 블록마다
+            "최근 window_size 개" 만 DB 에서 꺼내 온다. 앞부분이 잘린 이력을 score_session 에 넣으면
+            잘린 앞부분 자리에 PAD 가 채워져, 학습 때 본 적 없는 모양이 되어 오탐이 난다 (10/20 통합 시험에서 확인).
+            그래서 DeepLog·Autoencoder 는 이 함수를 다시 구현해 "EOS 위치 하나만" 판정한다.
+
+        기본 구현(통계 빈도 등): 세션 종료 개념이 없는 탐지기는 그냥 score_session(closed=True) 을 쓴다.
+
+        Args:
+            history: 그 블록의 최근 이벤트들 (오래된 것 → 최신 순). 최소 window_size 개면 충분하다.
+        """
+        return self.score_session(history, closed=True)
+
 
 class StatisticalFrequencyDetector(Detector):
     """통계 빈도 베이스라인을 Detector 형식으로 감싼 것 (baseline/rule_based.py 의 R3 규칙과 같은 판정).

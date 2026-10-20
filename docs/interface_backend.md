@@ -3,6 +3,8 @@
 - 작성: 옥상민 / 2026-10-12
 - **최종 채택 모델: `autoencoder` (2026-10-12, test F1 0.977).** 코드에서는 `from logguard.models.inference import RECOMMENDED_DETECTOR` 후 `load_detector(RECOMMENDED_DETECTOR)` 를 쓰면 이후 모델이 바뀌어도 수정이 필요 없다.
 - 세 Detector(`statistical_frequency`, `deeplog`, `autoencoder`)는 같은 인터페이스라 비교·시연 때 이름만 바꾸면 된다.
+- **2026-10-20 백엔드 연결 완료:** `src/logguard/api/predictor.py` 의 `DetectorPredictor` 가 백엔드 `Predictor` 약속을 구현하고,
+  서버가 `configs/api.yaml` 의 `model` 로 자동 연결한다. DB 구조는 `docs/db_schema.md` (백엔드·대시보드 공용 `api/schema.sql`).
 
 ## 준비
 
@@ -46,7 +48,8 @@ for blk in log.block_ids:                             # 로그 1줄마다
 | 메서드 | 용도 |
 |---|---|
 | `score_event(history)` | 스트리밍 판정. 블록의 지금까지 이벤트 목록을 넣으면 마지막 이벤트 시점 기준으로 판정 |
-| `score_session(events, closed=True)` | 블록이 끝났을 때 전체 판정. DeepLog 는 `closed=True` 일 때 '너무 일찍 끝난 세션'까지 검사 예정 |
+| `score_session(events, closed=True)` | 세션 전체 이벤트로 판정 (오프라인 평가용). `closed=True` 면 '너무 일찍 끝난 세션'까지 검사 |
+| `score_close(history)` | **세션 종료 판정 (2026-10-20 추가).** 최근 w(20)개만 받아 EOS 위치 하나만 판정. 백엔드처럼 이력 일부만 가진 곳에서 사용. 실시간 판정 OR `score_close` == 전체 `score_session(closed=True)` (test 11.5만 세션 100% 일치) |
 
 `DetectionResult` (`result.to_dict()` 로 JSON 변환 가능)
 
@@ -63,11 +66,13 @@ for blk in log.block_ids:                             # 로그 1줄마다
 - **DeepLog 사용 가능 (2026-10-12):** `load_detector("deeplog")`. `details` 예시:
   `{"position": 5, "actual": {"event_id": 13, "template": "Verification succeeded for <:BLK:>", "prob": 0.0003, "rank": 7}, "topk": [{"event_id": 3, "template": "...", "prob": 0.61}, ...]}`
   세션이 너무 일찍 끝난 경우 `actual.template` 이 `<EOS: 세션 종료>` 로 표시된다 (`score_session(..., closed=True)` 일 때만).
-- 세션 종료 시점: HDFS 로그에는 '블록 끝' 표시가 없으므로 일정 시간 새 로그가 없으면 종료로 보는 타임아웃 방식을 백엔드에서 정한다 (제안: 마지막 로그 후 N초).
+- 세션 종료 시점 (2026-10-20 결정): HDFS 정상 블록은 이벤트 사이가 수십만~130만 줄 벌어진다. 그래서 "초" 가 아니라 "행 수" 로
+  idle 을 판단한다 (`session_idle_lines` 150만, 재생 속도와 무관). 시연·평가는 재생 종료 후 `POST /sessions/close` 로 한꺼번에 판정.
+  실시간 경보만: test F1 0.880 / 세션 종료 판정 포함: 0.977
 
-## SQLite 저장 제안 (계획서 Ⅱ-1 ④)
+## SQLite 저장 (계획서 Ⅱ-1 ④) — 2026-10-20 통합 규격으로 확정
 
-`timestamp, block_id, event_id, template, anomaly_score(=result.score), reason, model, raw_log, alerted`
+`docs/db_schema.md` 참고 (`logs`, `session_results`, `alerts`).
 
 ## 문의
 

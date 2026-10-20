@@ -1,4 +1,10 @@
-"""Run: python -m streamlit run src/logguard/dashboard/app.py"""
+"""Run: python -m streamlit run src/logguard/dashboard/app.py
+
+DeepLog-Guard 모니터링 대시보드 (원작성: 이동준 / 2026-10-20 통합 DB 구조 반영: 옥상민)
+    데이터 소스 : 데모(합성 데이터) 또는 백엔드 SQLite (읽기 전용)
+    탭        : 실시간 모니터링 / 세션 상세 / 알림 이력 / 모델 평가
+    세션 판정  : 윈도우 중 하나라도 이상 OR 세션 종료(EOS) 판정 이상 (session_results)
+"""
 from __future__ import annotations
 
 import sys
@@ -11,7 +17,7 @@ import pandas as pd
 import streamlit as st
 
 from logguard.config import ROOT, load_config
-from logguard.dashboard.data import demo_data, evaluation_results, read_database, session_summary
+from logguard.dashboard.data import demo_data, evaluation_results, explain, read_database, session_summary
 
 st.set_page_config(page_title="DeepLog Guard", page_icon="🛡️", layout="wide")
 cfg = load_config()
@@ -41,7 +47,7 @@ with st.sidebar:
 def monitor():
     templates = pd.read_csv(cfg["paths"]["interim_dir"] / "hdfs_templates.csv")
     if source == "데모 데이터":
-        logs, alerts = demo_data(templates, cfg["seed"])
+        logs, alerts, closed = demo_data(templates, cfg["seed"])
         st.info("데모 모드 · 로그, 스코어, 지연, 알림은 합성 데이터입니다. 실제 모델 성능은 ‘모델 평가’에서 확인하세요.")
     else:
         path = Path(db_path)
@@ -50,10 +56,10 @@ def monitor():
             st.warning("SQLite 파일이 없습니다. 데모 모드로 화면을 확인하거나 백엔드 DB 경로를 입력하세요.")
             return
         try:
-            logs, alerts = read_database(path, dcfg["max_rows"])
+            logs, alerts, closed = read_database(path, dcfg["max_rows"])
         except Exception as exc:
             st.error(f"DB 조회 실패: {exc}")
-            st.caption("필요한 테이블과 필드는 src/logguard/dashboard/schema.sql을 참고하세요.")
+            st.caption("필요한 테이블과 필드는 src/logguard/api/schema.sql (설명: docs/db_schema.md)을 참고하세요.")
             return
         st.caption(f"읽기 전용 SQLite · 최신 {dcfg['max_rows']:,}개 윈도우까지 조회")
         if len(logs) == dcfg["max_rows"]:
@@ -71,7 +77,8 @@ def monitor():
     if block_search:
         observed = observed[observed["block_id"].str.contains(block_search, regex=False, na=False)]
     # Keep OR decisions across loaded history, even when the anomalous window precedes the time filter.
-    history = session_summary(logs)
+    # 세션 종료(EOS) 판정(closed)까지 합친 세션 판정
+    history = session_summary(logs, closed)
     active_keys = observed[["model_name", "block_id"]].drop_duplicates()
     sessions = history.merge(active_keys, on=["model_name", "block_id"])
     if anomalies_only:
@@ -107,24 +114,31 @@ def monitor():
                        (f"{latency.quantile(.95):.1f} ms" if len(latency) else "측정값 없음"))
             st.subheader("최근 추론 윈도우")
             display = observed.merge(templates[["event_id", "template"]], on="event_id", how="left")
-            st.dataframe(display.sort_values("timestamp", ascending=False), hide_index=True, use_container_width=True)
+            # 판정 근거 JSON → 한 줄 설명 (예: "실제: … → 모델 예상: …"), 원본 JSON 칸은 표에서 뺀다
+            display["판정 근거"] = [explain(d, r) for d, r in zip(display["details"], display["reason"])]
+            display = display.drop(columns=["details"])
+            st.dataframe(display.sort_values("timestamp", ascending=False), hide_index=True, width="stretch")
             st.download_button("조회 결과 CSV 다운로드", display.to_csv(index=False).encode("utf-8-sig"),
                                "logguard_predictions.csv", "text/csv")
     with detail:
-        st.dataframe(sessions.sort_values("last_seen", ascending=False), hide_index=True, use_container_width=True)
+        st.dataframe(sessions.sort_values("last_seen", ascending=False), hide_index=True, width="stretch")
         if not sessions.empty:
             choices = list(sessions[["model_name", "block_id"]].itertuples(index=False, name=None))
             selected = st.selectbox("세션 선택", choices, format_func=lambda item: f"{item[0]} · {item[1]}")
             sequence = logs[(logs["model_name"] == selected[0]) & (logs["block_id"] == selected[1])]
-            st.caption("선택한 세션의 로드된 전체 윈도우 이력 · 세션 종료 상태는 현재 제공되지 않습니다.")
-            st.dataframe(sequence.merge(templates[["event_id", "template"]], on="event_id", how="left"),
-                         hide_index=True, use_container_width=True)
+            info = sessions[(sessions["model_name"] == selected[0]) & (sessions["block_id"] == selected[1])].iloc[0]
+            st.caption("선택한 세션의 로드된 전체 윈도우 이력 · " + (
+                f"세션 종료 판정 완료 ({'끊긴 세션 → 이상' if info['close_anomaly'] else '정상 종료'})"
+                if info["is_closed"] else "아직 진행 중 (세션 종료 판정 전, 잠정 판정)"))
+            sequence = sequence.merge(templates[["event_id", "template"]], on="event_id", how="left")
+            sequence["판정 근거"] = [explain(d, r) for d, r in zip(sequence["details"], sequence["reason"])]
+            st.dataframe(sequence.drop(columns=["details"]), hide_index=True, width="stretch")
     with notifications:
         st.caption("전송 결과를 읽기 전용으로 표시합니다. 알림 전송과 중복 방지는 백엔드 알림 작업자가 담당합니다.")
         if alerts.empty:
             st.info("조회 구간에 알림 기록이 없습니다.")
         else:
-            st.dataframe(alerts.sort_values("timestamp", ascending=False), hide_index=True, use_container_width=True)
+            st.dataframe(alerts.sort_values("timestamp", ascending=False), hide_index=True, width="stretch")
     with evaluation:
         st.caption("HDFS test · 최종 평가는 세션 단위 · 실시간 조회 필터와 독립적인 저장된 실험 결과")
         try:
@@ -135,9 +149,10 @@ def monitor():
         if results.empty:
             st.info("저장된 평가 결과가 없습니다.")
         else:
-            st.dataframe(results, hide_index=True, use_container_width=True)
+            st.dataframe(results, hide_index=True, width="stretch")
             st.bar_chart(results.set_index("model")[["precision", "recall", "f1"]], horizontal=True)
-            st.caption("목표 F1 ≥ 0.85 · Autoencoder와 DeepLog는 결과 파일이 추가되면 표시됩니다.")
+            st.caption("목표 F1 ≥ 0.85 · 출처 results/final_test.csv (6단계 test 1회 평가) · "
+                       "f1_mean/f1_std 는 딥러닝 모델 시드 3개 평균 · *_noeos 는 세션 종료 토큰 없는 비교 실험")
 
 
 monitor()

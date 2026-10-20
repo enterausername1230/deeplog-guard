@@ -208,6 +208,15 @@ class DeepLogDetector(Detector):
         seq = self._encode(history, closed=False)
         return self._judge(list(history), seq, np.array([len(seq) - 1]))
 
+    def score_close(self, history: Sequence[int | None]) -> DetectionResult:
+        """세션 종료 판정: "직전 w 개 이벤트 다음에 EOS(세션 끝)가 오는 게 자연스러운가" 만 판정한다.
+
+        모델이 다음 이벤트로 EOS 를 거의 예상하지 않았다면(P(EOS) 가 매우 작음) "너무 일찍 끝난 세션" → 이상.
+        직전 w 개만 있으면 되므로 백엔드가 최근 w 개만 넘겨줘도 정확하다 (Detector.score_close 설명 참고).
+        """
+        seq = self._encode(history, closed=True)              # 끝에 EOS 추가
+        return self._judge(list(history), seq, np.array([len(seq) - 1]))   # EOS 위치만 판정
+
 
 # --------------------------------------------------------------------------- 학습·평가
 
