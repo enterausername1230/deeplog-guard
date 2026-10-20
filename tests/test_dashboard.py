@@ -64,7 +64,13 @@ def test_demo_data_is_explicit_and_has_anomalies():
     assert logs["model_name"].str.startswith("Demo").all()
 
 
-def test_streamlit_demo_filters_and_missing_db():
+def test_streamlit_demo_filters_and_missing_db(tmp_path):
+    """데모 모드 필터 + DB 파일이 없을 때 경고.
+
+    (2026-10-21 수정) 기본 DB 경로가 백엔드 DB(artifacts/api/logguard.sqlite)와 같아져서, start.sh 로 서버를 한 번
+    실행한 컴퓨터에서는 기본 경로에 DB 가 존재한다. 그래서 "없는 DB" 를 검사할 때는 기본값에 기대지 않고
+    임시 폴더의 존재하지 않는 경로를 직접 넣는다 (팀원 PC 상태와 상관없이 같은 결과).
+    """
     from streamlit.testing.v1 import AppTest
 
     app = AppTest.from_file(str(ROOT / "src/logguard/dashboard/app.py"), default_timeout=20).run()
@@ -77,6 +83,7 @@ def test_streamlit_demo_filters_and_missing_db():
     assert not app.exception
     assert app.metric[0].value == "0"
     app.radio[0].set_value("SQLite").run()
+    app.text_input[0].set_value(str(tmp_path / "missing.sqlite3")).run()     # 존재하지 않는 DB 경로
     assert not app.exception
     assert any("SQLite 파일이 없습니다" in item.value for item in app.warning)
 
