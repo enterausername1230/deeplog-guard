@@ -16,7 +16,7 @@ uvicorn[standard]>=0.30
 locust>=2.29
 
 # 대시보드·알림 (이동준)
-streamlit>=1.36
+streamlit>=1.37
 requests>=2.32
 
 # 개발 · 노트북

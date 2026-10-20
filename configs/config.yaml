@@ -83,3 +83,9 @@ tuning:
   autoencoder:
     window_size: [10, 15, 20]
     hidden_dims: [[64, 16], [64, 32]]
+
+dashboard:
+  database_path: data/logguard.sqlite3
+  refresh_seconds: 5
+  max_rows: 20000
+  default_period_minutes: 60
