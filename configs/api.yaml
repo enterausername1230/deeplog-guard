@@ -1,0 +1,29 @@
+# Backend-only settings. Paths are relative to the repository root.
+# 백엔드(FastAPI) 전용 설정 (원작성: 안명근 / 2026-10-20 모델 연결·세션 종료 설정 추가: 옥상민)
+# 다른 설정 파일을 쓰려면 환경변수 LOGGUARD_API_CONFIG=<경로>
+
+database: artifacts/api/logguard.sqlite      # SQLite 파일 (실행 시 생성, git 제외). 구조: src/logguard/api/schema.sql
+drain_config: configs/drain3.ini             # 마스킹 규칙 (학습 때와 같은 파일)
+drain_state: artifacts/drain3/drain3_state.bin   # 학습 때 저장한 Drain 템플릿 상태 (매칭만, 덮어쓰지 않음)
+vocab: data/processed/event_vocab.json       # Event ID → 모델 입력 번호 어휘 (git 포함)
+
+# 판정 모델: autoencoder(최종 채택, test F1 0.977) / deeplog / null(모델 없이 수집만)
+model: autoencoder
+# 블록마다 DB 에서 꺼내 모델에 넘기는 "이전 이벤트" 개수. 모델 윈도우(20) 이상이어야 한다.
+#   10 이면 정상 세션 대부분이 이상으로 판정됨 (2026-10-20 통합 시험). 20 미만이면 서버가 시작을 거부한다.
+window_size: 20
+
+# 세션 종료(EOS) 판정 — 중간에 끊긴 이상 세션(이상의 약 18%)은 이것으로만 잡힌다
+#   session_idle_lines : 그 블록의 마지막 로그 뒤로 이만큼(행) 새 로그가 들어오면 "끝난 세션" 으로 보고 판정.
+#                        HDFS 정상 블록은 이벤트 사이가 매우 길다 (test 재생 스트림 최대 약 130만 줄) → 150만으로 여유
+#                        null 이면 자동 종료 판정을 끈다 (POST /sessions/close 로만 판정)
+#   session_sweep_every: 몇 행마다 위 검사를 할지 (검사 자체도 DB 조회라 너무 자주 하지 않음)
+#   시연·평가: 재생이 끝나면 replay --close-sessions (= POST /sessions/close) 로 열린 세션을 한꺼번에 판정
+session_idle_lines: 1500000
+session_sweep_every: 50000
+
+max_log_chars: 16384                         # 이보다 긴 로그는 413 오류
+sqlite_timeout_seconds: 10                   # DB 가 잠겨 있을 때 기다리는 최대 초
+replay_url: http://127.0.0.1:8000/logs       # 로그 재생 모듈이 보낼 주소
+replay_rate: 10                              # 재생 속도 (초당 줄 수, 상한)
+replay_timeout_seconds: 10                   # 요청 1건 응답 대기 최대 초

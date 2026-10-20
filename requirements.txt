@@ -13,11 +13,14 @@ torch>=2.3
 # 백엔드 (안명근)
 fastapi>=0.111
 uvicorn[standard]>=0.30
+httpx>=0.27        # 로그 재생(replay.py) HTTP 전송 + FastAPI TestClient
 locust>=2.29
 
 # 대시보드·알림 (이동준)
-streamlit>=1.36
+streamlit>=1.46        # width="stretch" 사용 (use_container_width 는 폐지 예정)
 requests>=2.32
 
-# 개발
+# 개발 · 노트북
 pytest>=8.2
+matplotlib>=3.8
+ipykernel>=6.29
