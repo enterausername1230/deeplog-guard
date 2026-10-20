@@ -160,7 +160,7 @@ make dashboard                   # 터미널 3: Streamlit → 사이드바에서
 ```
 
 - 실시간 경보(로그마다 판정): test F1 0.880 / 세션 종료 판정 포함 최종: test F1 0.977
-- DB 구조: `docs/db_schema.md`, 백엔드 상세: `src/logguard/api/README.md`
+- DB 구조: `docs/db_schema.md` (규격), `docs/db_design.md` (설계 계획서), 백엔드 상세: `src/logguard/api/README.md`
 
 ## Streamlit 대시보드
 

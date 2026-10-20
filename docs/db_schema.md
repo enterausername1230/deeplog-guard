@@ -1,6 +1,7 @@
 # DB 구조 (통합 규격)
 
 - 작성: 옥상민 / 2026-10-20 (백엔드 `logs` + 대시보드 `predictions`·`alerts` 를 하나로 통합)
+- 설계 근거·결정·미결 사항: [`db_design.md`](db_design.md) (계획서)
 - 정의 파일: [`src/logguard/api/schema.sql`](../src/logguard/api/schema.sql) — **이 파일 하나만** 진짜 규격이다. 백엔드가 서버 시작 시 실행하고, 대시보드 테스트도 이 파일로 테이블을 만든다.
 - DB 파일: `artifacts/api/logguard.sqlite` (`configs/api.yaml` 의 `database`, git 제외). 예전 구조로 만든 파일은 칸이 달라 **지우고 서버를 다시 켜야 한다.**
 
