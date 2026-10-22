@@ -11,7 +11,7 @@
 |---|---|---|---|
 | `logs` | 로그 1줄 × 블록 1개 (실시간 판정) | 백엔드 `POST /logs` | 대시보드 (실시간 모니터링·세션 상세), 알림 작업자 |
 | `session_results` | 끝난 세션 1개 (세션 종료·EOS 판정) | 백엔드 (자동 idle / `POST /sessions/close`) | 대시보드, 알림 작업자 |
-| `alerts` | Slack 알림 1건 | **Slack 알림 작업자 (담당 이동준, 미구현)** | 대시보드 (알림 이력) |
+| `alerts` | Slack 알림 1건 | **Slack 알림 작업자 (`dashboard/notifier.py`)** | 대시보드 (알림 이력) |
 
 ## 세션 최종 판정
 
