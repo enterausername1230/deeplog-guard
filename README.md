@@ -153,6 +153,19 @@ make test
 
 ## 전체 시스템 실행 (백엔드 + 재생 + 대시보드)
 
+**가장 쉬운 방법: `start.sh` 한 번** (백엔드·대시보드·로그 재생을 한꺼번에 켜고, Ctrl+C 한 번으로 모두 종료)
+
+```bash
+./start.sh            # 빠른 시연: test 로그 2만 줄 (약 1분), 대시보드가 브라우저로 열림
+./start.sh full       # 전체 test 재생 약 1시간 + 세션 종료 판정 → 최종 F1 0.977 재현
+./start.sh serve      # 재생 없이 서버·대시보드만 (http://127.0.0.1:8000/docs 에서 직접 테스트)
+LIMIT=50000 RATE=500 ./start.sh   # 옵션: 줄 수, 초당 속도 / KEEP_DB=1 이전 DB 이어 쓰기 / NO_BROWSER=1
+```
+
+대시보드 사이드바에서 데이터 소스를 **SQLite** 로 바꾸면 실시간 결과가 보인다. 실행 기록은 `artifacts/run_logs/`.
+
+터미널 3개로 따로 켜는 방법:
+
 ```bash
 make api                         # 터미널 1: FastAPI 서버 (Autoencoder 판정, http://127.0.0.1:8000/docs)
 make replay                      # 터미널 2: test 블록 로그 재생 → 끝나면 세션 종료 판정
@@ -190,9 +203,67 @@ DB 규격은 백엔드와 공유하는 [`src/logguard/api/schema.sql`](src/loggu
 
 - `logs`: 로그 1줄 × 블록 1개. 대시보드는 판정된 행(`status` normal/anomaly)만 읽습니다
 - `session_results`: 세션 종료(EOS) 판정. 세션 판정 = **윈도우 OR + 종료 판정** (같은 모델·Block ID 기준)
-- `alerts`: Slack 알림 이력. 전송·중복 방지는 Slack 알림 작업자(담당 이동준, 미구현)가 하며, 블록·모델당 1건만 저장됩니다
+- `alerts`: Slack 알림 이력. 전송·중복 방지는 Slack 알림 작업자(`dashboard/notifier.py`)가 하며, 블록·모델당 1건만 저장됩니다
 
 조회 기간은 **최신 기록 시각**을 기준으로 계산하여 과거 Replay도 조회할 수 있습니다.
 최대 조회 행 수는 `dashboard.max_rows`이며 상한에 도달하면 경고합니다.
 
 대시보드 검증: `.venv/bin/python -m pytest tests/test_dashboard.py -q`.
+
+## Slack 이상 알림 설정
+
+Slack은 팀용 메신저이며, 여기서는 텔레그램 봇 알림처럼 이상 세션 알림을 채널로 받는 용도입니다.
+Incoming Webhook이 연결된 채널에 알림을 게시하고, 모바일 Slack 앱에서 해당 채널의 알림을 켜면 휴대폰으로도 받을 수 있습니다.
+
+1. Slack 워크스페이스에 가입하거나 새로 만들고 `#logguard-alerts` 같은 전용 채널을 만듭니다.
+2. https://api.slack.com/apps 에서 **Create New App → From scratch**로 앱을 만듭니다.
+3. 앱 설정 **Incoming Webhooks → Activate Incoming Webhooks**를 켭니다.
+4. **Add New Webhook to Workspace**에서 알림 채널을 선택하고 허용합니다.
+5. 발급된 Webhook URL을 프로젝트 루트의 `.env`에 아래 형식으로 저장합니다. 채팅이나 Git에 올리지 않습니다.
+
+```dotenv
+SLACK_WEBHOOK_URL=여기에_발급받은_URL
+```
+
+```bash
+make slack-preview   # 먼저 대상 메시지 확인: Slack 전송·DB 변경 없음
+make slack           # 실제 전송: 별도 터미널에서 실행, Ctrl+C로 종료
+# 한 배치만 전송하려면
+PYTHONPATH=src .venv/bin/python -m logguard.dashboard.notifier --once
+```
+
+백엔드를 먼저 실행해야 DB가 생성됩니다. `start.sh`는 알림 작업자를 자동으로 켜지 않습니다.
+알림 설정값은 `configs/config.yaml`의 `slack`에 있고 DB 경로는 백엔드 설정(`LOGGUARD_API_CONFIG` 지원)을 따릅니다.
+외부 전송은 Webhook을 설정하고 `make slack`을 실행했을 때 시작됩니다. **기존 DB의 미알림 이상도 대상**입니다.
+
+작업자는 `logs.is_anomaly=1` 또는 `session_results.is_anomaly=1`인 세션을 찾고,
+`alerts`의 UNIQUE(block_id, model_name)으로 전송 대상을 선점합니다. Slack 응답이 성공이면 `sent`,
+실패하면 `failed`와 오류·완료 시각을 기록합니다. 성공한 세션의 로드된 로그에 `alerted=1`을 설정합니다.
+세션 종료에서만 이상으로 판정되면 `alerts.log_id`는 NULL입니다. 대시보드의 알림 이력 탭에서 결과를 확인합니다.
+
+중복 전송을 피하기 위해 실패·타임아웃은 자동 재시도하지 않습니다. 요청이 실제 전달됐는지 Slack 채널에서 확인해야 합니다.
+전송 중 프로세스가 종료되면 해당 기록은 `pending`으로 남을 수 있으며 자동 재전송하지 않습니다.
+즉, DB 중복 선점은 막지만 HTTP 전송과 DB 저장을 완전히 하나의 트랜잭션으로 만들 수는 없습니다.
+한 채널에 약 1초 간격으로 보내므로 대량 이상이 쌓이면 E2E 2초 목표를 넘길 수 있습니다.
+공식 설정 문서: https://docs.slack.dev/messaging/sending-messages-using-incoming-webhooks
+
+### Slack 알림이 발생하는 조건
+
+`make slack`으로 알림 작업자를 실행하면 기본 **0.5초마다 DB를 확인**합니다.
+대시보드의 버튼이나 새로고침이 전송을 트리거하지 않습니다.
+
+| 상황 | DB 조건 | 예시 |
+|---|---|---|
+| 실시간 이상 감지 | `logs.is_anomaly = 1` | 모델이 이상으로 판정하거나 학습에 없던 이벤트 등장 |
+| 세션 종료 시 이상 감지 | `session_results.is_anomaly = 1` | EOS 판정에서 중간에 끊긴 세션 등 이상 감지 |
+
+- 정상 세션에는 알림을 보내지 않습니다.
+- **같은 모델 + Block ID는 한 번만 알립니다.** 실시간에 이미 알렸다면 종료 판정 때 다시 보내지 않습니다.
+- 작업자를 켜기 전에 DB에 저장된 미알림 이상도 전송 대상입니다.
+- `alerts`에 이미 `pending`, `sent`, `failed` 중 어떤 상태로든 기록된 세션은 자동 재전송하지 않습니다.
+- 실패·타임아웃은 기록만 남기며 자동 재시도하지 않습니다. 대상·상태는 대시보드 알림 이력에서 확인합니다.
+- `slack.poll_seconds`는 대상 조회 간격이고, 실제 전송은 `slack.send_interval_seconds` 간격을 둡니다.
+
+시연 서버를 다른 팀원이 실행하면 Webhook URL은 비공개 경로로 별도 전달하고,
+그 서버의 프로젝트 루트 `.env`에 저장해야 합니다. `.env`와 `.env.*`는 `.gitignore` 대상이며,
+실제 URL을 README·PR·커밋에 포함하지 않습니다.

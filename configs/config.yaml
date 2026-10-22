@@ -89,3 +89,9 @@ dashboard:
   refresh_seconds: 5
   max_rows: 20000
   default_period_minutes: 60
+
+slack:
+  poll_seconds: 0.5
+  batch_size: 20
+  timeout_seconds: 5
+  send_interval_seconds: 1.1   # 채널당 약 1초 간격으로 전송
