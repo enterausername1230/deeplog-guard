@@ -56,13 +56,13 @@
 
 `id, timestamp, block_id, model_name, log_id, status(pending/sent/failed), message, completed_at, error`, **UNIQUE(block_id, model_name)**
 
-권장 흐름 (별도 프로세스 또는 스레드, 예: `src/logguard/dashboard/notifier.py`)
+구현: `src/logguard/dashboard/notifier.py` (별도 프로세스)
 
-1. 몇 초마다 새 이상을 찾는다
-   - 실시간: `SELECT … FROM logs WHERE is_anomaly = 1 AND alerted = 0 AND id > 마지막으로 본 id`
-   - 세션 종료: `SELECT … FROM session_results WHERE is_anomaly = 1` 중 아직 alerts 에 없는 블록
+1. 몇백 ms 마다 새 이상을 찾는다
+   - 실시간: `logs` 에서 `status = 'anomaly'` (인덱스 사용) 중 아직 alerts 에 없는 블록
+   - 세션 종료: `session_results` 에서 `is_anomaly = 1` 중 아직 alerts 에 없는 블록
 2. `INSERT OR IGNORE INTO alerts (…, status) VALUES (…, 'pending')` — UNIQUE 덕분에 **같은 블록은 한 번만** 알림
-3. Slack Incoming Webhook 으로 전송 (URL 은 `.env` 의 `SLACK_WEBHOOK_URL`, 커밋 금지)
+3. 쌓인 블록을 메시지 1건에 묶어 Slack Incoming Webhook 으로 전송 (URL 은 `.env` 의 `SLACK_WEBHOOK_URL`, 커밋 금지)
 4. 결과로 `UPDATE alerts SET status = 'sent' | 'failed', completed_at = 지금, error = …` 그리고 `UPDATE logs SET alerted = 1 WHERE id = log_id`
 
 메시지 예: `[이상] blk_-160… · autoencoder 점수 0.83 · 실제: Deleting block … → 모델 예상: Receiving block …` (`dashboard.data.explain()` 재사용 가능)

@@ -17,8 +17,11 @@
 #   RATE=300 ./start.sh        초당 전송 줄 수 상한 (기본 1000, 서버 처리 한계가 약 660줄/초)
 #   KEEP_DB=1 ./start.sh       이전 실행의 DB 를 지우지 않고 이어서 쓰기 (기본: 매번 새 DB)
 #   NO_BROWSER=1 ./start.sh    브라우저 자동 열기 끄기
+#   NO_SLACK=1 ./start.sh      Slack 알림 끄기 (.env 에 SLACK_WEBHOOK_URL 이 있어도 보내지 않음)
 #
-# 실행 기록(로그 파일): artifacts/run_logs/{api,dashboard,replay}.log
+# Slack 알림: .env(또는 환경변수)에 SLACK_WEBHOOK_URL 이 있으면 알림 프로그램도 같이 켜진다. 없으면 알림 없이 실행
+#
+# 실행 기록(로그 파일): artifacts/run_logs/{api,dashboard,replay,notifier}.log
 # =============================================================================================
 
 # -e: 명령이 실패하면 즉시 중단 / -u: 정의 안 된 변수를 쓰면 오류 / -o pipefail: 파이프 중간 실패도 실패로 처리
@@ -118,6 +121,24 @@ done
 say "   대시보드: http://localhost:$DASH_PORT  →  사이드바에서 데이터 소스를 'SQLite' 로 선택하세요"
 if [ "${NO_BROWSER:-0}" != "1" ] && command -v open >/dev/null 2>&1; then
   open "http://localhost:$DASH_PORT"     # macOS: 기본 브라우저로 열기
+fi
+
+# ── 5-1. Slack 알림 프로그램 (백엔드가 DB 를 만든 뒤에 켠다) ───────────────────────────────────
+if [ "${NO_SLACK:-0}" = "1" ]; then
+  say "   Slack 알림: 꺼짐 (NO_SLACK=1)"
+elif [ -n "${SLACK_WEBHOOK_URL:-}" ] || { [ -f .env ] && grep -q '^SLACK_WEBHOOK_URL=' .env; }; then
+  PYTHONPATH=src "$PY" -m logguard.dashboard.notifier > "$LOG_DIR/notifier.log" 2>&1 &
+  NOTIFIER_PID=$!
+  sleep 2                                # 주소 형식이 틀리면 바로 종료되므로 잠깐 기다렸다가 확인
+  if kill -0 "$NOTIFIER_PID" 2>/dev/null; then
+    PIDS+=("$NOTIFIER_PID")
+    say "   Slack 알림: 켜짐 (실제 채널로 전송됩니다, 기록: $LOG_DIR/notifier.log)"
+  else
+    warn "Slack 알림 프로그램이 시작하지 못했습니다. 알림 없이 계속합니다."
+    tail -1 "$LOG_DIR/notifier.log"
+  fi
+else
+  say "   Slack 알림: 꺼짐 (.env 에 SLACK_WEBHOOK_URL 없음)"
 fi
 
 # ── 6. 로그 재생 ─────────────────────────────────────────────────────────────────────────────

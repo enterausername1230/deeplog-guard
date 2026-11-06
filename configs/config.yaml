@@ -92,6 +92,9 @@ dashboard:
 
 slack:
   poll_seconds: 0.5
-  batch_size: 20
+  batch_size: 1000             # 한 메시지에 묶을 수 있는 최대 블록 수 (세션 종료 판정 약 600건도 한 번에 처리)
   timeout_seconds: 5
-  send_interval_seconds: 1.1   # 채널당 약 1초 간격으로 전송
+  send_interval_seconds: 1.1   # 메시지 사이 간격 (Slack Webhook 제한: 초당 약 1건)
+  critical_score: 0.9          # 이 점수 이상이거나 학습에 없던 이벤트면 긴급 표시
+  digest_limit: 10             # 묶음 메시지에 이름을 보여 줄 블록 수 (나머지는 "외 N개")
+  dashboard_url: http://localhost:8501   # 메시지 링크 주소. 학교 서버에 올리면 그 주소로 변경

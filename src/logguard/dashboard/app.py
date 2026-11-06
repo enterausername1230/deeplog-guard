@@ -31,12 +31,14 @@ st.caption("서버 로그 이상 탐지 · Block ID 세션 모니터링")
 
 with st.sidebar:
     st.header("모니터링 설정")
-    source = st.radio("데이터 소스", ["데모 데이터", "SQLite"])
+    # Slack 알림의 링크(?block=블록ID)로 열렸으면 실제 DB 를 보여 주고 그 블록으로 걸러 둔다 (2026-11-06 추가)
+    linked_block = st.query_params.get("block", "")
+    source = st.radio("데이터 소스", ["데모 데이터", "SQLite"], index=1 if linked_block else 0)
     db_path = st.text_input("SQLite 경로", value=dcfg["database_path"], disabled=source != "SQLite")
     period = st.selectbox("조회 기간", [15, 30, 60, 120, 1440],
                           index=[15, 30, 60, 120, 1440].index(dcfg["default_period_minutes"]),
                           format_func=lambda value: f"최근 {value}분")
-    block_search = st.text_input("Block ID 검색", placeholder="blk_...")
+    block_search = st.text_input("Block ID 검색", value=linked_block, placeholder="blk_...")
     anomalies_only = st.checkbox("이상 세션만 보기")
     auto_refresh = st.toggle("자동 갱신", value=True)
     st.button("지금 새로고침")

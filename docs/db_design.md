@@ -104,7 +104,7 @@ flowchart LR
     M -->|"INSERT"| L[("logs")]
     A -->|"idle 150만 행 /<br/>POST /sessions/close"| C["세션 종료 판정<br/>predict_close"]
     C -->|"INSERT"| S[("session_results")]
-    N["Slack 알림 작업자<br/>(이동준, 미구현)"] -->|"is_anomaly=1 읽기"| L
+    N["Slack 알림 작업자<br/>(notifier.py)"] -->|"status=anomaly 읽기"| L
     N -->|"is_anomaly=1 읽기"| S
     N -->|"INSERT / UPDATE"| AL[("alerts")]
     N -->|"Webhook"| SL["Slack"]
@@ -158,7 +158,7 @@ flowchart LR
 
 | # | 항목 | 담당 | 시점 |
 |---|---|---|---|
-| Q1 | Slack 알림 작업자 구현 (`alerts` 채우기, `logs.alerted` 갱신) — 순서는 `db_schema.md` | 이동준 | 7~8주차 |
+| Q1 | ~~Slack 알림 작업자 구현~~ 구현 완료 (`dashboard/notifier.py`). 실제 Slack 전송 확인이 남음 | 이동준 | 9주차 |
 | Q2 | Locust 동시 50명 실측. 500줄/초가 안 나오면 연결 재사용·배치 저장 | 안명근 | 10~11주차 |
 | Q3 | 판정 근거(`details`)를 이상 행에만 저장할지 (DB 약 45% 감소) | 팀 회의 | 7주차 |
 | Q4 | 데이터 보관·삭제 정책 | 팀 회의 | 11주차 |
