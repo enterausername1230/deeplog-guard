@@ -266,7 +266,10 @@ def run(cfg: dict, limit: int | None = None) -> None:
         "elapsed_sec": round(time.time() - t0, 1),
     }
     # ensure_ascii=False : 한글을 \uXXXX 로 바꾸지 않고 그대로 저장
-    (interim / "parse_summary.json").write_text(json.dumps(summary, indent=2, ensure_ascii=False))
+    # 걸린 시간(elapsed_sec)은 화면에만 보여 주고 파일에는 저장하지 않는다: 실행할 때마다 값이 달라져서
+    # git 에 올라간 이 파일이 매번 "수정됨" 으로 바뀌는 것을 막기 위해 (2026-10-21)
+    saved = {k: v for k, v in summary.items() if k != "elapsed_sec"}
+    (interim / "parse_summary.json").write_text(json.dumps(saved, indent=2, ensure_ascii=False))
     print(json.dumps(summary, indent=2, ensure_ascii=False))
 
 
