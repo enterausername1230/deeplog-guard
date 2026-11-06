@@ -84,3 +84,10 @@ api:              ## FastAPI 백엔드 (configs/api.yaml 의 model 로 실시간
 replay:           ## test 블록 로그를 초당 RATE 줄로 재생하고 끝나면 세션 종료 판정 (예: make replay RATE=500)
 	PYTHONPATH=src $(PY) -m logguard.api.replay data/raw/HDFS_v1/HDFS.log \
 		--test-sessions data/processed/test.parquet --rate $(or $(RATE),100) --close-sessions
+
+.PHONY: slack slack-preview
+slack:             ## .env Webhook으로 미알림 이상 세션 전송 (별도 프로세스)
+	PYTHONPATH=src $(PY) -m logguard.dashboard.notifier
+
+slack-preview:     ## 외부 전송·DB 변경 없이 알림 대상 확인
+	PYTHONPATH=src $(PY) -m logguard.dashboard.notifier --preview
