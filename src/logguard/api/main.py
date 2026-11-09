@@ -27,12 +27,12 @@ import logging
 import sqlite3
 import time
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from .db import Database
 from .inference import LogMatcher, Predictor
-from .predictor import DetectorPredictor
 from .settings import load_settings
 
 logger = logging.getLogger(__name__)
@@ -96,14 +96,22 @@ def create_app(settings=None, predictor: Predictor | None = None):
         app.state.settings, app.state.matcher, app.state.db = cfg, matcher, db
         # 판정기: 직접 넣은 것이 우선, 없으면 api.yaml 의 model 로 생성 (model 이 null 이면 None = 수집만)
         #   DetectorPredictor 는 window_size·어휘 검사를 통과하지 못하면 ValueError → 서버가 켜지지 않음 (의도된 동작)
-        app.state.predictor = predictor if predictor is not None else DetectorPredictor.from_settings(cfg)
+        app.state.predictor = predictor
+        if predictor is None and cfg.get('model'):
+            from .predictor import DetectorPredictor
+            app.state.predictor = DetectorPredictor.from_settings(cfg)
         app.state.lock = Lock()
         yield
 
     app = FastAPI(title='DeepLog-Guard Backend', version='0.2.0', lifespan=lifespan)
 
+    @app.exception_handler(sqlite3.OperationalError)
+    async def database_unavailable(request: Request, exc: sqlite3.OperationalError):
+        logger.error('Database unavailable on %s', request.url.path, exc_info=exc)
+        return JSONResponse(status_code=503, content={'detail': 'Database temporarily unavailable'})
+
     def close_sessions(max_last_id=None, close_reason='manual'):
-        """아직 종료 판정을 안 받은 블록들에 세션 종료(EOS) 판정을 내리고 session_results 에 저장한다.
+        """미판정 블록과 판정 후 새 로그가 들어온 블록에 종료(EOS) 판정을 내려 저장한다.
 
         Args:
             max_last_id : 마지막 로그 id 가 이 값 이하인 블록만 (= 오래 소식 없음). None 이면 열린 블록 전부
@@ -121,7 +129,12 @@ def create_app(settings=None, predictor: Predictor | None = None):
             todo = db.sessions_to_close(con, model_name, max_last_id)
             for block, last_id in todo:
                 # 그 블록의 최근 window_size 개만 꺼내 EOS 판정 (score_close 는 최근 w 개면 정확하다)
-                p = pred.predict_close(tuple(db.history(con, block, cfg['window_size'])))
+                events = tuple(db.history(con, block, cfg['window_size']))
+                try:
+                    p = pred.predict_close(events)
+                except Exception as exc:
+                    logger.exception('Session close inference failed')
+                    raise HTTPException(503, 'Session close inference failed; results were not stored') from exc
                 db.insert_session_result(con, {
                     'block_id': block, 'model_name': model_name, 'closed_at': now, 'close_reason': close_reason,
                     'last_log_id': last_id, 'anomaly_score': p.anomaly_score,
