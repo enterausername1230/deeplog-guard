@@ -152,7 +152,8 @@ def monitor():
             st.info("저장된 평가 결과가 없습니다.")
         else:
             st.dataframe(results, hide_index=True, width="stretch")
-            st.bar_chart(results.set_index("model")[["precision", "recall", "f1"]], horizontal=True)
+            # stack=False: 지표 3개를 나란히 그린다. 기본값(쌓기)이면 precision+recall+f1 이 더해져 축이 0~3 이 된다 (2026-11-19 수정)
+            st.bar_chart(results.set_index("model")[["precision", "recall", "f1"]], horizontal=True, stack=False)
             st.caption("목표 F1 ≥ 0.85 · 출처 results/final_test.csv (6단계 test 1회 평가) · "
                        "f1_mean/f1_std 는 딥러닝 모델 시드 3개 평균 · *_noeos 는 세션 종료 토큰 없는 비교 실험")
 
