@@ -67,7 +67,7 @@ dplngproj/
 │   └── processed/           # 분할 결과
 ├── artifacts/               # drain3/ 상태, models/*.json Detector 설정 (git 포함)
 ├── results/                 # 모델·베이스라인 평가 결과 json
-└── docs/                    # 개발 일정(schedule.md), 실행 계획(plan_week4-6.md), 백엔드 인터페이스(interface_backend.md), figures/
+└── docs/                    # 개발일지(devlog.md), 개발 일정(schedule.md), 실행 계획(plan_week4-6.md), 백엔드 인터페이스(interface_backend.md), figures/
 ```
 
 ## 시작하기
@@ -232,19 +232,20 @@ make slack           # 실제 전송: 별도 터미널에서 실행, Ctrl+C로 �
 PYTHONPATH=src .venv/bin/python -m logguard.dashboard.notifier --once
 ```
 
-백엔드를 먼저 실행해야 DB가 생성됩니다. `start.sh`는 알림 작업자를 자동으로 켜지 않습니다.
+백엔드를 먼저 실행해야 DB가 생성됩니다. `start.sh`는 `.env`에 Webhook 주소가 있으면 알림 작업자도 함께 켭니다 (`NO_SLACK=1`로 끄기).
 알림 설정값은 `configs/config.yaml`의 `slack`에 있고 DB 경로는 백엔드 설정(`LOGGUARD_API_CONFIG` 지원)을 따릅니다.
 외부 전송은 Webhook을 설정하고 `make slack`을 실행했을 때 시작됩니다. **기존 DB의 미알림 이상도 대상**입니다.
 
-작업자는 `logs.is_anomaly=1` 또는 `session_results.is_anomaly=1`인 세션을 찾고,
-`alerts`의 UNIQUE(block_id, model_name)으로 전송 대상을 선점합니다. Slack 응답이 성공이면 `sent`,
+작업자는 `logs.status='anomaly'` 또는 `session_results.is_anomaly=1`인 세션을 찾고,
+`alerts`의 UNIQUE(block_id, model_name)으로 전송 대상을 선점합니다. 쌓인 이상은 **메시지 1건에 묶어** 보냅니다 (1건이면 상세, 여러 건이면 요약, 긴급 먼저). Slack 응답이 성공이면 `sent`,
 실패하면 `failed`와 오류·완료 시각을 기록합니다. 성공한 세션의 로드된 로그에 `alerted=1`을 설정합니다.
 세션 종료에서만 이상으로 판정되면 `alerts.log_id`는 NULL입니다. 대시보드의 알림 이력 탭에서 결과를 확인합니다.
 
 중복 전송을 피하기 위해 실패·타임아웃은 자동 재시도하지 않습니다. 요청이 실제 전달됐는지 Slack 채널에서 확인해야 합니다.
-전송 중 프로세스가 종료되면 해당 기록은 `pending`으로 남을 수 있으며 자동 재전송하지 않습니다.
+전송 중 프로세스가 종료되면 다음 시작 때 해당 `pending` 기록을 `failed`로 표시하며 자동 재전송하지 않습니다.
+실패한 알림은 `python -m logguard.dashboard.notifier --retry-failed`를 직접 실행할 때만 다시 보냅니다.
 즉, DB 중복 선점은 막지만 HTTP 전송과 DB 저장을 완전히 하나의 트랜잭션으로 만들 수는 없습니다.
-한 채널에 약 1초 간격으로 보내므로 대량 이상이 쌓이면 E2E 2초 목표를 넘길 수 있습니다.
+메시지 사이 간격은 약 1초입니다(Slack 제한). 쌓인 이상은 다음 메시지에 함께 담기므로 뒤에 줄을 서지 않습니다.
 공식 설정 문서: https://docs.slack.dev/messaging/sending-messages-using-incoming-webhooks
 
 ### Slack 알림이 발생하는 조건
@@ -262,6 +263,7 @@ PYTHONPATH=src .venv/bin/python -m logguard.dashboard.notifier --once
 - 작업자를 켜기 전에 DB에 저장된 미알림 이상도 전송 대상입니다.
 - `alerts`에 이미 `pending`, `sent`, `failed` 중 어떤 상태로든 기록된 세션은 자동 재전송하지 않습니다.
 - 실패·타임아웃은 기록만 남기며 자동 재시도하지 않습니다. 대상·상태는 대시보드 알림 이력에서 확인합니다.
+- 긴급 표시: 학습에 없던 이벤트이거나 점수가 `slack.critical_score`(0.9) 이상. 메시지의 대시보드 링크 주소는 `slack.dashboard_url`.
 - `slack.poll_seconds`는 대상 조회 간격이고, 실제 전송은 `slack.send_interval_seconds` 간격을 둡니다.
 
 시연 서버를 다른 팀원이 실행하면 Webhook URL은 비공개 경로로 별도 전달하고,

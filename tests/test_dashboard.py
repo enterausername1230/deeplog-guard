@@ -126,3 +126,14 @@ def test_explain_reasons():
     assert explain(ae, "model") == "실제: A  →  모델 예상: B"
     assert explain(None, "unknown_event") == "학습에 없던 이벤트 등장"
     assert explain(None, "normal") == ""
+
+
+def test_slack_link_opens_sqlite_filtered_to_block():
+    """Slack 링크(?block=...)로 열면 데모가 아니라 SQLite 모드 + 그 블록 검색 상태로 시작한다."""
+    from streamlit.testing.v1 import AppTest
+
+    app = AppTest.from_file(str(ROOT / "src/logguard/dashboard/app.py"), default_timeout=20)
+    app.query_params["block"] = "blk_-7"
+    app.run()
+    assert not app.exception
+    assert app.radio[0].value == "SQLite" and app.text_input[1].value == "blk_-7"
