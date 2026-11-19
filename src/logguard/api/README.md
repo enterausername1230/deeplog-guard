@@ -145,9 +145,12 @@ Locust는 사용자당 초당 10건을 목표로 한다. 50명은 최대 목표 
 
 ```bash
 PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=../.. .venv-check/bin/python -m pytest \
-  ../../../tests/test_api.py ../../../tests/test_integration.py tests \
+  ../../../tests/test_api.py ../../../tests/test_integration.py ../../../tests/test_backend_regressions.py \
   -q -p no:cacheprovider --basetemp=.check-output/pytest
 ```
+
+(2026-11-19 merge 때 회귀 테스트를 `src/logguard/api/tests/` 에서 프로젝트 `tests/` 폴더로 옮겼다.
+프로젝트 루트에서 `make test` 를 실행하면 함께 실행된다.)
 
 `.venv-check/`는 로컬 검증용 패키지 환경, `.check-output/`은 임시 DB·설정·테스트 결과다.
 폴더 내부 `.gitignore`로 Git에서 제외하며, 다른 팀원이 받는 소스에 포함되지 않는다.
