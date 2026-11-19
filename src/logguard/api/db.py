@@ -83,29 +83,32 @@ class Database:
 
     @staticmethod
     def sessions_to_close(con, model_name, max_last_id=None):
-        """아직 종료 판정을 받지 않은 블록 목록 [(block_id, 마지막 logs.id), ...] 을 돌려준다.
+        """종료 판정이 없거나 최신 로그에 대한 재판정이 필요한 블록 목록 [(block_id, 마지막 logs.id), ...] 을 돌려준다.
 
         Args:
-            model_name : 이 모델로 아직 종료 판정이 안 된 블록만 고른다
+            model_name : 이 모델의 종료 판정이 없거나, 판정 이후 새 로그가 추가된 블록을 고른다
             max_last_id: 주면 "마지막 로그 id 가 이 값 이하인 블록" 만 = 그 뒤로 오래 소식이 없는 블록 (idle 종료)
                          None 이면 열린 블록 전부 (재생이 끝났을 때 수동 종료)
         """
-        sql = ('SELECT block_id, MAX(id) AS last_id FROM logs '
-               'WHERE block_id IS NOT NULL AND block_id NOT IN '
-               '(SELECT block_id FROM session_results WHERE model_name = ?) '
-               'GROUP BY block_id')
+        sql = ('SELECT l.block_id, MAX(l.id) AS last_id FROM logs AS l '
+               'LEFT JOIN session_results AS s ON s.block_id = l.block_id AND s.model_name = ? '
+               'WHERE l.block_id IS NOT NULL GROUP BY l.block_id '
+               'HAVING MAX(l.id) > COALESCE(MAX(s.last_log_id), 0)')
         args = [model_name]
         if max_last_id is not None:
-            sql += ' HAVING MAX(id) <= ?'          # HAVING: GROUP BY 로 묶은 결과에 거는 조건
+            sql += ' AND MAX(l.id) <= ?'          # HAVING: GROUP BY 로 묶은 결과에 거는 조건
             args.append(max_last_id)
         return [(row['block_id'], row['last_id']) for row in con.execute(sql, args)]
 
     @staticmethod
     def insert_session_result(con, row):
-        """session_results 에 종료 판정 1행 저장 (같은 블록·모델이 이미 있으면 무시 → 중복 판정 방지)."""
+        """블록·모델별 최신 종료 판정을 저장한다. 새 로그가 없는 세션은 다시 선택되지 않는다."""
         columns = ', '.join(row)
         placeholders = ', '.join('?' for _ in row)
-        con.execute(f'INSERT OR IGNORE INTO session_results ({columns}) VALUES ({placeholders})', tuple(row.values()))
+        updates = ', '.join(f'{key} = excluded.{key}' for key in row if key not in ('block_id', 'model_name'))
+        con.execute(
+            f'INSERT INTO session_results ({columns}) VALUES ({placeholders}) '
+            f'ON CONFLICT(block_id, model_name) DO UPDATE SET {updates}', tuple(row.values()))
 
     @staticmethod
     def max_id(con):

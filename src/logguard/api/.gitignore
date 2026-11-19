@@ -1,0 +1,5 @@
+.venv-check/
+.uv-cache/
+.check-output/
+__pycache__/
+.pytest_cache/

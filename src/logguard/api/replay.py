@@ -13,6 +13,7 @@
         --test-sessions data/processed/test.parquet --rate 500 --close-sessions
 """
 import argparse
+import math
 from datetime import datetime, timezone
 from pathlib import Path
 import time
@@ -41,7 +42,7 @@ def replay(path, url, rate, timeout, limit=None, allowed_blocks=None, close_url=
         rate      : 초당 최대 전송 줄 수 (서버 응답이 느리면 실제 속도는 더 낮다)
         close_url : 주면 재생이 끝난 뒤 이 주소(POST /sessions/close)를 호출해 세션 종료 판정을 실행
     """
-    if rate <= 0 or timeout <= 0 or (limit is not None and limit <= 0):
+    if not math.isfinite(rate) or not math.isfinite(timeout) or rate <= 0 or timeout <= 0 or (limit is not None and limit <= 0):
         raise ValueError('rate, timeout and limit must be positive')
     sent = 0
     with httpx.Client(timeout=timeout) as client:
