@@ -161,8 +161,9 @@ make test
 **가장 쉬운 방법: `start.sh` 한 번** (백엔드·대시보드·로그 재생을 한꺼번에 켜고, Ctrl+C 한 번으로 모두 종료)
 
 ```bash
-./start.sh            # 빠른 시연: test 로그 2만 줄 (약 1분), 대시보드가 브라우저로 열림
-./start.sh full       # 전체 test 재생 약 1시간 + 세션 종료 판정 → 최종 F1 0.977 재현
+./start.sh demo       # 발표 시연: test 블록 1,000개를 처음부터 끝까지 재생 (약 30초) + 세션 종료 판정 + 정확도 출력
+./start.sh            # 빠른 확인: test 로그 앞 2만 줄 (약 30초, 세션 종료 판정 없음)
+./start.sh full       # 최종 테스트: 전체 test 재생 약 1시간 + 세션 종료 판정 → 최종 F1 0.977 재현 (NO_SLACK=1 권장)
 ./start.sh serve      # 재생 없이 서버·대시보드만 (http://127.0.0.1:8000/docs 에서 직접 테스트)
 LIMIT=50000 RATE=500 ./start.sh   # 옵션: 줄 수, 초당 속도 / KEEP_DB=1 이전 DB 이어 쓰기 / NO_BROWSER=1
 ```

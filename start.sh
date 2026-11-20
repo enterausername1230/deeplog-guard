@@ -9,11 +9,14 @@
 #
 # 사용법 (프로젝트 폴더에서)
 #   ./start.sh            빠른 시연: 로그 2만 줄 재생 (약 1분). 끝나도 서버·대시보드는 계속 켜져 있음
-#   ./start.sh full       전체 test 재생 (223만 줄, 약 1시간) + 끝나면 세션 종료 판정 → 최종 F1 0.977 재현
+#   ./start.sh demo       발표 시연용: test 블록 1,000개를 무작위로 골라 그 로그만 처음부터 끝까지 재생 (약 30초)
+#                         → 끝나면 세션 종료 판정 + 이 샘플의 정확도(F1) 출력 (같은 seed 라 리허설과 본 시연이 같다)
+#   ./start.sh full       전체 test 재생 (223만 줄, 약 1시간) + 끝나면 세션 종료 판정 → 최종 F1 0.977 재현 (최종 테스트용)
 #   ./start.sh serve      재생 없이 서버·대시보드만 (http://127.0.0.1:8000/docs 에서 직접 로그를 보내 볼 때)
 #
 # 옵션 (환경변수, 명령 앞에 붙인다)
 #   LIMIT=50000 ./start.sh     빠른 시연에서 보낼 줄 수 (기본 20000)
+#   DEMO_BLOCKS=2000 ./start.sh demo   demo 모드에서 고를 블록 수 (기본 1000 ≈ 로그 1만 9천 줄)
 #   RATE=300 ./start.sh        초당 전송 줄 수 상한 (기본 1000, 서버 처리 한계가 약 660줄/초)
 #   KEEP_DB=1 ./start.sh       이전 실행의 DB 를 지우지 않고 이어서 쓰기 (기본: 매번 새 DB)
 #   NO_BROWSER=1 ./start.sh    브라우저 자동 열기 끄기
@@ -33,6 +36,7 @@ cd "$(dirname "$0")"
 
 MODE="${1:-quick}"                       # 첫 번째 인자. 없으면 quick
 LIMIT="${LIMIT:-20000}"                  # ${변수:-기본값}: 변수가 비어 있으면 기본값 사용
+DEMO_BLOCKS="${DEMO_BLOCKS:-1000}"       # demo 모드: 무작위로 고를 test 블록 수
 RATE="${RATE:-1000}"
 PY=".venv/bin/python"                    # 프로젝트 가상환경의 파이썬 (make setup 으로 생성)
 API_PORT=8000
@@ -47,9 +51,9 @@ warn() { printf '\033[1;33m[주의]\033[0m %s\n' "$*"; }       # 노란색 주�
 die()  { printf '\033[1;31m[오류]\033[0m %s\n' "$*"; exit 1; }  # 빨간색 오류 후 종료
 
 case "$MODE" in
-  quick|full|serve) ;;
-  -h|--help|help) sed -n '2,24p' "$0"; exit 0 ;;           # 위 설명 부분을 그대로 보여 줌
-  *) die "알 수 없는 모드: $MODE  (quick / full / serve 중 하나)" ;;
+  quick|demo|full|serve) ;;
+  -h|--help|help) sed -n '2,27p' "$0"; exit 0 ;;           # 위 설명 부분을 그대로 보여 줌
+  *) die "알 수 없는 모드: $MODE  (quick / demo / full / serve 중 하나)" ;;
 esac
 
 # ── 1. 종료 처리: Ctrl+C 를 누르거나 오류로 끝나도 띄운 프로그램을 모두 끈다 ─────────────────────
@@ -71,6 +75,12 @@ trap cleanup EXIT INT TERM
 if [ "$MODE" != "serve" ]; then
   [ -f data/raw/HDFS_v1/HDFS.log ] && [ -f data/processed/test.parquet ] \
     || die "재생할 데이터가 없습니다. 먼저 실행: make data  (또는 ./start.sh serve 로 서버만)"
+fi
+# demo 모드: 시연 샘플 로그 파일을 서버를 켜기 전에 준비한다 (처음 한 번 약 10초, 이후에는 저장된 파일 사용)
+if [ "$MODE" = "demo" ]; then
+  DEMO_FILE=$(PYTHONPATH=src "$PY" -m logguard.api.demo prepare --blocks "$DEMO_BLOCKS" | tail -1)
+  [ -f "$DEMO_FILE" ] || die "시연 샘플을 만들지 못했습니다: $DEMO_FILE"
+  say "시연 샘플: $DEMO_FILE"
 fi
 # 포트가 이미 쓰이고 있으면(예: 이전 실행이 남아 있음) 알려 주고 멈춘다
 for port in "$API_PORT" "$DASH_PORT"; do
@@ -159,7 +169,11 @@ if [ "$MODE" = "serve" ]; then
 else
   REPLAY_ARGS=(data/raw/HDFS_v1/HDFS.log --url "http://127.0.0.1:$API_PORT/logs"
                --test-sessions data/processed/test.parquet --rate "$RATE")
-  if [ "$MODE" = "quick" ]; then
+  if [ "$MODE" = "demo" ]; then
+    # 샘플 파일에는 고른 블록의 로그만 원래 순서대로 들어 있다 → 모든 세션이 끝까지 들어오므로 종료 판정이 정확하다
+    REPLAY_ARGS=("$DEMO_FILE" --url "http://127.0.0.1:$API_PORT/logs" --rate "$RATE" --close-sessions)
+    say "③ 시연 재생: test 블록 ${DEMO_BLOCKS}개의 로그를 처음부터 끝까지 초당 최대 ${RATE}줄로 재생 → 끝나면 세션 종료 판정"
+  elif [ "$MODE" = "quick" ]; then
     # 빠른 시연에서는 세션 종료 판정을 하지 않는다: 중간에서 끊었으므로 진행 중인 정상 세션까지
     # "끊긴 세션(이상)" 으로 판정되기 때문 (끝까지 재생하는 full 모드에서만 의미가 있음)
     REPLAY_ARGS+=(--limit "$LIMIT")
@@ -183,6 +197,10 @@ else
     tail -5 "$LOG_DIR/replay.log"
   fi
   show_stats
+  # demo 모드: 이 샘플의 정답(라벨)과 비교한 정확도 출력 (실시간만 / 세션 종료 판정 포함)
+  if [ "$MODE" = "demo" ]; then
+    PYTHONPATH=src "$PY" -m logguard.api.demo score --blocks "$DEMO_BLOCKS" || true
+  fi
 fi
 
 say "서버와 대시보드는 계속 켜져 있습니다. 끝내려면 Ctrl+C"
