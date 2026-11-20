@@ -9,7 +9,7 @@ import pandas as pd
 import pytest
 
 from logguard.config import ROOT
-from logguard.dashboard.data import demo_data, explain, read_database, session_summary, trend_frequency
+from logguard.dashboard.data import default_source, demo_data, explain, read_database, session_summary, trend_frequency
 
 SCHEMA = ROOT / "src/logguard/api/schema.sql"     # 백엔드와 공유하는 단일 DB 규격
 
@@ -148,3 +148,12 @@ def test_trend_frequency_fits_span():
     assert trend_frequency(span(3600)) == "30s"       # 1시간 → 점 120개
     assert trend_frequency(span(86400)) == "15min"    # 하루 → 점 96개
     assert trend_frequency(pd.Series([pd.Timestamp("2026-11-20T00:00:00Z")])) == "1min"   # 점 1개면 기본값
+
+
+def test_default_source_prefers_real_db():
+    """처음 고르는 데이터 소스: 환경변수 → Slack 링크 → DB 파일 존재 → 데모 (2026-11-20 추가)"""
+    assert default_source("sqlite", "", False) == "SQLite"          # start.sh 는 환경변수로 SQLite 지정
+    assert default_source("demo", "blk_1", True) == "데모 데이터"   # 환경변수가 가장 우선
+    assert default_source(None, "blk_1", False) == "SQLite"         # Slack 링크로 열림
+    assert default_source(None, "", True) == "SQLite"               # 서버를 돌려 DB 가 있음
+    assert default_source(None, "", False) == "데모 데이터"         # DB 없이 화면만 볼 때

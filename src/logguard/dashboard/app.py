@@ -7,6 +7,7 @@ DeepLog-Guard 모니터링 대시보드 (원작성: 이동준 / 2026-10-20 통�
 """
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -17,8 +18,8 @@ import pandas as pd
 import streamlit as st
 
 from logguard.config import ROOT, load_config
-from logguard.dashboard.data import (demo_data, evaluation_results, explain, read_database, session_summary,
-                                     trend_frequency)
+from logguard.dashboard.data import (SOURCES, default_source, demo_data, evaluation_results, explain,
+                                     read_database, session_summary, trend_frequency)
 
 st.set_page_config(page_title="DeepLog Guard", page_icon="🛡️", layout="wide")
 cfg = load_config()
@@ -34,7 +35,11 @@ with st.sidebar:
     st.header("모니터링 설정")
     # Slack 알림의 링크(?block=블록ID)로 열렸으면 실제 DB 를 보여 주고 그 블록으로 걸러 둔다 (2026-11-06 추가)
     linked_block = st.query_params.get("block", "")
-    source = st.radio("데이터 소스", ["데모 데이터", "SQLite"], index=1 if linked_block else 0)
+    # 처음 고를 데이터 소스: 환경변수 → Slack 링크 → DB 파일 존재 순 (2026-11-20, 시연 중 데모 데이터로 남는 실수 방지)
+    db_default = Path(dcfg["database_path"])
+    db_default = db_default if db_default.is_absolute() else ROOT / db_default
+    first = default_source(os.environ.get("LOGGUARD_DASHBOARD_SOURCE"), linked_block, db_default.is_file())
+    source = st.radio("데이터 소스", SOURCES, index=SOURCES.index(first))
     db_path = st.text_input("SQLite 경로", value=dcfg["database_path"], disabled=source != "SQLite")
     period = st.selectbox("조회 기간", [15, 30, 60, 120, 1440],
                           index=[15, 30, 60, 120, 1440].index(dcfg["default_period_minutes"]),

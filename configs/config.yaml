@@ -87,7 +87,7 @@ tuning:
 dashboard:
   database_path: artifacts/api/logguard.sqlite   # 백엔드 configs/api.yaml 의 database 와 같은 파일 (2026-10-20 통일)
   refresh_seconds: 5
-  max_rows: 20000
+  max_rows: 50000          # 대시보드가 한 번에 읽는 최신 행 수. 2026-11-20: 2만 → 5만 (2만 줄 시연에서 '조회 상한' 경고가 항상 뜨던 문제)
   default_period_minutes: 60
 
 slack:

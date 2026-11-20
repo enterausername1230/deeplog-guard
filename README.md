@@ -167,14 +167,14 @@ make test
 LIMIT=50000 RATE=500 ./start.sh   # 옵션: 줄 수, 초당 속도 / KEEP_DB=1 이전 DB 이어 쓰기 / NO_BROWSER=1
 ```
 
-대시보드 사이드바에서 데이터 소스를 **SQLite** 로 바꾸면 실시간 결과가 보인다. 실행 기록은 `artifacts/run_logs/`.
+`start.sh` 로 연 대시보드는 처음부터 **SQLite**(실제 DB) 모드로 열려 실시간 결과가 보인다. 실행 기록은 `artifacts/run_logs/`.
 
 터미널 3개로 따로 켜는 방법:
 
 ```bash
 make api                         # 터미널 1: FastAPI 서버 (Autoencoder 판정, http://127.0.0.1:8000/docs)
 make replay                      # 터미널 2: test 블록 로그 재생 → 끝나면 세션 종료 판정
-make dashboard                   # 터미널 3: Streamlit → 사이드바에서 "SQLite" 선택
+make dashboard                   # 터미널 3: Streamlit (DB 파일이 있으면 SQLite 모드로 열림)
 ```
 
 - 실시간 경보(로그마다 판정): test F1 0.880 / 세션 종료 판정 포함 최종: test F1 0.977
@@ -189,7 +189,8 @@ make dashboard
 .venv/bin/python -m streamlit run src/logguard/dashboard/app.py
 ```
 
-기본은 **데모 데이터** 모드입니다. DB나 학습된 모델 없이 화면을 확인할 수 있습니다.
+처음 여는 데이터 소스는 자동으로 고릅니다 (2026-11-20): 환경변수 `LOGGUARD_DASHBOARD_SOURCE`(`sqlite`/`demo`) → Slack 링크(`?block=`) → 백엔드 DB 파일이 있으면 **SQLite** → 없으면 **데모 데이터**.
+`start.sh` 는 SQLite 로 엽니다. 데모 데이터 모드는 DB나 학습된 모델 없이 화면만 확인할 때 씁니다.
 데모 로그·스코어·지연·Slack 이력은 합성 데이터이며, 모델 평가 탭은 실제 `results/final_test.csv`(6단계 test 결과)를 읽습니다.
 대시보드는 알림을 전송하지 않으며 SQLite를 읽기 전용으로 조회합니다.
 

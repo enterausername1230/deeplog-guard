@@ -111,14 +111,15 @@ say "   API 화면: http://127.0.0.1:$API_PORT/docs"
 # ── 5. 대시보드 실행 (백그라운드) ─────────────────────────────────────────────────────────────
 say "② 대시보드 시작..."
 # --server.headless true: 첫 실행 때 묻는 이메일 입력을 건너뛴다 (브라우저는 아래에서 직접 연다)
-"$PY" -m streamlit run src/logguard/dashboard/app.py --server.port "$DASH_PORT" --server.headless true \
+# LOGGUARD_DASHBOARD_SOURCE=sqlite: 대시보드가 처음부터 실제 DB(SQLite)를 보여 준다 (2026-11-20, 데모 데이터로 시연하는 실수 방지)
+LOGGUARD_DASHBOARD_SOURCE=sqlite "$PY" -m streamlit run src/logguard/dashboard/app.py --server.port "$DASH_PORT" --server.headless true \
   > "$LOG_DIR/dashboard.log" 2>&1 &
 PIDS+=($!)
 for _ in $(seq 1 30); do
   curl -s -m 1 "http://localhost:$DASH_PORT" >/dev/null 2>&1 && break
   sleep 1
 done
-say "   대시보드: http://localhost:$DASH_PORT  →  사이드바에서 데이터 소스를 'SQLite' 로 선택하세요"
+say "   대시보드: http://localhost:$DASH_PORT  (실제 DB 를 보여 주는 SQLite 모드로 열림)"
 if [ "${NO_BROWSER:-0}" != "1" ] && command -v open >/dev/null 2>&1; then
   open "http://localhost:$DASH_PORT"     # macOS: 기본 브라우저로 열기
 fi

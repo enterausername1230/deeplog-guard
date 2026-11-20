@@ -132,6 +132,29 @@ def demo_data(templates: pd.DataFrame, seed: int) -> tuple[pd.DataFrame, pd.Data
             normalize_closed(pd.DataFrame(closed, columns=CLOSED_COLUMNS)))
 
 
+SOURCES = ["데모 데이터", "SQLite"]      # 사이드바 '데이터 소스' 선택지 (순서 = 화면 순서)
+
+
+def default_source(env_value: str | None, linked_block: str, db_exists: bool) -> str:
+    """대시보드를 처음 열었을 때 고를 데이터 소스 (2026-11-20 추가).
+
+    예전에는 항상 '데모 데이터' 로 시작해서, 시연 중 SQLite 로 바꾸는 것을 잊으면 합성 데이터가 보였다.
+    우선순위
+      1) 환경변수 LOGGUARD_DASHBOARD_SOURCE = "sqlite" / "demo" (start.sh 는 "sqlite" 로 실행한다)
+      2) Slack 링크(?block=블록ID)로 열렸으면 SQLite
+      3) 백엔드 DB 파일이 있으면 SQLite (서버를 한 번이라도 돌렸다는 뜻)
+      4) 그 밖에는 데모 데이터 (DB 없이 화면만 볼 때)
+    """
+    env = (env_value or "").strip().lower()
+    if env in ("sqlite", "db"):
+        return "SQLite"
+    if env in ("demo", "데모"):
+        return "데모 데이터"
+    if linked_block or db_exists:
+        return "SQLite"
+    return "데모 데이터"
+
+
 # 점수 추이 그래프의 묶음 간격 후보 (짧은 것부터). 2026-11-20 추가: 예전에는 항상 1분이라
 # 2만 줄을 30초에 재생하는 시연에서는 점이 하나만 찍혀 그래프가 비어 보였다.
 TREND_STEPS = ["1s", "2s", "5s", "10s", "30s", "1min", "5min", "15min", "1h"]

@@ -130,3 +130,10 @@ Slack 은 실제 주소 대신 0.3초 뒤 `ok` 를 돌려주는 로컬 가짜 �
 - `docs/db_design.md`·`docs/db_schema.md`·`schema.sql` 주석: 세션 재판정 반영, Q1·Q2·Q6 완료, 처리량·E2E 실측값
 - `src/logguard/api/README.md`: Locust 개선 방법과 측정 결과 표
 - `configs/config.yaml`: 어떤 코드도 읽지 않던 `window.size: 10` 삭제 (실제 윈도우는 모델별 20)
+
+## 2026-11-20 · 시연 실수 방지 수정, 시나리오 문서 (옥상민)
+
+- 시연 시나리오 `docs/demo_scenario.md`, 최종 테스트 시나리오 `docs/test_scenario.md` 추가 (11/28~29 시험 11개, 결과표·목표 실측표)
+- 대시보드 첫 데이터 소스 자동 선택: 환경변수 `LOGGUARD_DASHBOARD_SOURCE` → Slack 링크 → DB 파일이 있으면 SQLite → 없으면 데모. `start.sh` 는 SQLite 로 실행한다. 예전에는 항상 '데모 데이터' 로 시작해 바꾸는 것을 잊으면 합성 데이터로 시연하게 됐다 (중간발표 자료의 대시보드 화면이 데모 데이터였음)
+- 대시보드 조회 상한 `max_rows` 2만 → 5만: 2만 줄 시연에서 '조회 상한 도달' 경고가 항상 뜨던 문제. 5만 행 읽기 약 0.4초 (자동 갱신 5초)
+- 테스트 56 → 57개. `start.sh` 실행으로 SQLite 모드로 바로 열리고 경고가 없는 것을 확인
