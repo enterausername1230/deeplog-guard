@@ -132,6 +132,26 @@ def demo_data(templates: pd.DataFrame, seed: int) -> tuple[pd.DataFrame, pd.Data
             normalize_closed(pd.DataFrame(closed, columns=CLOSED_COLUMNS)))
 
 
+# 점수 추이 그래프의 묶음 간격 후보 (짧은 것부터). 2026-11-20 추가: 예전에는 항상 1분이라
+# 2만 줄을 30초에 재생하는 시연에서는 점이 하나만 찍혀 그래프가 비어 보였다.
+TREND_STEPS = ["1s", "2s", "5s", "10s", "30s", "1min", "5min", "15min", "1h"]
+
+
+def trend_frequency(timestamps: pd.Series, target_points: int = 120) -> str:
+    """조회 구간 길이에 맞춰 점수 추이 그래프의 묶음 간격을 고른다.
+
+    점이 약 target_points 개 이하가 되는 가장 짧은 간격을 돌려준다.
+    예) 30초 구간 → "1s" (점 30개), 1시간 구간 → "30s" (점 120개), 하루 → "15min".
+    """
+    if len(timestamps) < 2:
+        return "1min"
+    span = (timestamps.max() - timestamps.min()).total_seconds()
+    for step in TREND_STEPS:
+        if span / pd.Timedelta(step).total_seconds() <= target_points:
+            return step
+    return TREND_STEPS[-1]
+
+
 def session_summary(logs: pd.DataFrame, closed: pd.DataFrame | None = None) -> pd.DataFrame:
     """Session OR: any anomalous window marks the observed session anomalous.
 

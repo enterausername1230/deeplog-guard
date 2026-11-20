@@ -9,7 +9,7 @@ import pandas as pd
 import pytest
 
 from logguard.config import ROOT
-from logguard.dashboard.data import demo_data, explain, read_database, session_summary
+from logguard.dashboard.data import demo_data, explain, read_database, session_summary, trend_frequency
 
 SCHEMA = ROOT / "src/logguard/api/schema.sql"     # 백엔드와 공유하는 단일 DB 규격
 
@@ -137,3 +137,14 @@ def test_slack_link_opens_sqlite_filtered_to_block():
     app.run()
     assert not app.exception
     assert app.radio[0].value == "SQLite" and app.text_input[1].value == "blk_-7"
+
+
+def test_trend_frequency_fits_span():
+    """점수 추이 그래프 묶음 간격: 짧은 재생(30초)은 1초 단위, 긴 구간은 점이 너무 많지 않게 (2026-11-20 추가)"""
+    def span(seconds):
+        start = pd.Timestamp("2026-11-20T00:00:00Z")
+        return pd.Series([start, start + pd.Timedelta(seconds=seconds)])
+    assert trend_frequency(span(30)) == "1s"          # 2만 줄 빠른 시연 ≈ 30초 → 점 30개
+    assert trend_frequency(span(3600)) == "30s"       # 1시간 → 점 120개
+    assert trend_frequency(span(86400)) == "15min"    # 하루 → 점 96개
+    assert trend_frequency(pd.Series([pd.Timestamp("2026-11-20T00:00:00Z")])) == "1min"   # 점 1개면 기본값

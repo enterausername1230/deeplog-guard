@@ -50,7 +50,7 @@
 
 ## `session_results` 칸
 
-`block_id, model_name` (복합 PK, 블록당 한 번만 판정), `closed_at`, `close_reason`(`idle`/`manual`), `last_log_id`, `anomaly_score`, `threshold`, `is_anomaly`, `reason`, `details`
+`block_id, model_name` (복합 PK, 블록·모델당 1행. 종료 판정 뒤 그 블록에 로그가 더 들어오면 다음 종료 검사에서 재판정해 이 행을 갱신 — 2026-11-10 안명근), `closed_at`, `close_reason`(`idle`/`manual`), `last_log_id`, `anomaly_score`, `threshold`, `is_anomaly`, `reason`, `details`
 
 ## `alerts` 칸 — Slack 알림 작업자 구현 가이드 (이동준)
 
@@ -75,4 +75,7 @@ FROM alerts a JOIN logs l ON l.id = a.log_id
 WHERE a.status = 'sent' AND l.sent_at IS NOT NULL;
 ```
 
-목표: p95 ≤ 2,000ms. 서버 안쪽 지연(`logs.latency_ms`)은 2026-10-20 측정 기준 Autoencoder 연결 시 요청당 p95 약 1.8ms.
+목표: p95 ≤ 2,000ms.
+
+- **실측 (2026-11-19, 실제 Slack, test 로그 2만 줄):** p50 0.69초, p95 1.64초, 최대 1.72초, 12건 모두 2초 이내. Slack 요청 1건 약 0.33초
+- 서버 안쪽 지연(`logs.latency_ms`, 수신 → 판정): 재생 모듈 1개로 순차 전송 시 p95 0.52ms. 동시 요청이 몰리면 잠금 대기가 포함되어 커진다 (Locust 50명 기준 p95 약 41ms)

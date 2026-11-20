@@ -17,7 +17,8 @@ import pandas as pd
 import streamlit as st
 
 from logguard.config import ROOT, load_config
-from logguard.dashboard.data import demo_data, evaluation_results, explain, read_database, session_summary
+from logguard.dashboard.data import (demo_data, evaluation_results, explain, read_database, session_summary,
+                                     trend_frequency)
 
 st.set_page_config(page_title="DeepLog Guard", page_icon="🛡️", layout="wide")
 cfg = load_config()
@@ -109,8 +110,11 @@ def monitor():
             st.subheader("이상 스코어와 임계치")
             for name, group in observed.groupby("model_name"):
                 st.caption(name)
-                trend = group.set_index("timestamp")[["anomaly_score", "threshold"]].resample("1min").max()
+                # 묶음 간격을 조회 구간 길이에 맞춰 고른다 (짧은 재생 시연에서도 선이 보이도록, 2026-11-20)
+                freq = trend_frequency(group["timestamp"])
+                trend = group.set_index("timestamp")[["anomaly_score", "threshold"]].resample(freq).max()
                 st.line_chart(trend, x_label="시간 (브라우저 현지 시각)", y_label="모델 스코어")
+                st.caption(f"{freq} 단위 최댓값")
             latency = observed["latency_ms"].dropna()
             st.caption(f"관측 윈도우 {len(observed):,}개 · 추론 지연 p95 " +
                        (f"{latency.quantile(.95):.1f} ms" if len(latency) else "측정값 없음"))

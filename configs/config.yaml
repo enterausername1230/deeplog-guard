@@ -30,9 +30,9 @@ split:
   # 학습셋은 정상 세션만 사용 (이상 세션은 제외하고 개수만 기록)
   train_normal_only: true
 
-window:
-  size: 10        # 계획서: 10~20 범위에서 튜닝
-  stride: 1
+# (2026-11-20 삭제) 예전 공통 window.size: 10 / stride: 1 — 어떤 코드도 읽지 않는 초기값이라 오해를 막으려고 지웠다.
+# 실제 윈도우 크기는 모델별 설정을 쓴다: deeplog.window_size / autoencoder.window_size (둘 다 20, 5단계 튜닝 결과)
+# 백엔드가 모델에 넘기는 이력 개수는 configs/api.yaml 의 window_size (20, 모델 윈도우보다 작으면 서버가 시작 거부)
 
 baseline:
   # 템플릿 텍스트에 포함되면 '오류 이벤트'로 간주하는 키워드 (대소문자 무시)

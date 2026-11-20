@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS session_results (
     is_anomaly    INTEGER NOT NULL CHECK (is_anomaly IN (0, 1)),
     reason        TEXT    NOT NULL,
     details       TEXT,                               -- 판정 근거 JSON
-    PRIMARY KEY (block_id, model_name)                -- 한 블록은 모델마다 한 번만 종료 판정
+    PRIMARY KEY (block_id, model_name)                -- 블록·모델당 1행. 판정 뒤 새 로그가 오면 재판정해 이 행을 갱신 (2026-11-10)
 );
 
 
