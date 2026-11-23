@@ -81,9 +81,11 @@ dashboard:       ## Streamlit 모니터링 대시보드
 api:              ## FastAPI 백엔드 (configs/api.yaml 의 model 로 실시간 판정, 단일 워커)
 	$(PY) -m uvicorn logguard.api.main:app --app-dir src --host 127.0.0.1 --port 8000 --workers 1
 
-replay:           ## test 블록 로그를 초당 RATE 줄로 재생하고 끝나면 세션 종료 판정 (예: make replay RATE=500)
+# 기본 속도: 초당 1000줄 (start.sh 와 같음). 2026-11-23: 100 → 1000
+#   예전 100 이면 test 약 223만 줄 전체 재생에 6시간 넘게 걸렸다. 서버 처리 한계는 약 660줄/초라 실제로는 약 1시간
+replay:           ## test 블록 로그를 초당 RATE 줄로 재생하고 끝나면 세션 종료 판정 (기본 1000, 예: make replay RATE=500)
 	PYTHONPATH=src $(PY) -m logguard.api.replay data/raw/HDFS_v1/HDFS.log \
-		--test-sessions data/processed/test.parquet --rate $(or $(RATE),100) --close-sessions
+		--test-sessions data/processed/test.parquet --rate $(or $(RATE),1000) --close-sessions
 
 .PHONY: slack slack-preview
 slack:             ## .env Webhook으로 미알림 이상 세션 전송 (별도 프로세스)

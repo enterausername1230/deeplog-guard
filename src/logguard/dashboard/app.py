@@ -14,12 +14,13 @@ from pathlib import Path
 # Support direct Streamlit invocation before editable package installation.
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
+import altair as alt
 import pandas as pd
 import streamlit as st
 
 from logguard.config import ROOT, load_config
 from logguard.dashboard.data import (SOURCES, alerts_since, default_source, demo_data, evaluation_results, explain,
-                                     read_database, session_summary, trend_frequency)
+                                     read_database, session_summary, to_kst, trend_frequency)
 
 st.set_page_config(page_title="DeepLog Guard", page_icon="🛡️", layout="wide")
 cfg = load_config()
@@ -79,8 +80,10 @@ def monitor():
     # Filter relative to the latest observed timestamp so historical replay remains inspectable.
     anchor = logs["timestamp"].max()
     cutoff = anchor - pd.Timedelta(minutes=period)
+    # key 를 데이터 소스마다 따로 둔다 (2026-11-23): 하나로 쓰면 SQLite 에서 고른 'autoencoder' 가
+    # 데모 데이터로 바꾼 뒤에도 남아, 데모 모델('Demo Autoencoder')이 선택되지 않아 모든 숫자가 0 이 됐다
     models = st.multiselect("모델", sorted(logs["model_name"].unique()),
-                            default=sorted(logs["model_name"].unique()), key="models")
+                            default=sorted(logs["model_name"].unique()), key=f"models_{source}")
     observed = logs[(logs["timestamp"] >= cutoff) & logs["model_name"].isin(models)]
     if block_search:
         observed = observed[observed["block_id"].str.contains(block_search, regex=False, na=False)]
@@ -115,8 +118,18 @@ def monitor():
                 st.caption(name)
                 # 묶음 간격을 조회 구간 길이에 맞춰 고른다 (짧은 재생 시연에서도 선이 보이도록, 2026-11-20)
                 freq = trend_frequency(group["timestamp"])
-                trend = group.set_index("timestamp")[["anomaly_score", "threshold"]].resample(freq).max()
-                st.line_chart(trend, x_label="시간 (브라우저 현지 시각)", y_label="모델 스코어")
+                # 브라우저 시간대와 상관없이 KST 로 보이도록 시간대를 바꿔서 그린다 (2026-11-23)
+                trend = to_kst(group).set_index("timestamp")[["anomaly_score", "threshold"]].resample(freq).max()
+                # st.line_chart 는 축을 02:52 처럼 12시간제로 그려 오전·오후를 알 수 없었다 →
+                # Altair 로 직접 그려 축을 24시간제(14:52:08)로 고정한다 (2026-11-23)
+                long = trend.reset_index().melt("timestamp", var_name="series", value_name="score")
+                chart = alt.Chart(long).mark_line().encode(
+                    x=alt.X("timestamp:T", title="시간 (KST)", axis=alt.Axis(format="%H:%M:%S")),
+                    y=alt.Y("score:Q", title="모델 스코어"),
+                    color=alt.Color("series:N", title=None, legend=alt.Legend(orient="bottom")),
+                    tooltip=[alt.Tooltip("timestamp:T", title="시각", format="%H:%M:%S"), "series:N",
+                             alt.Tooltip("score:Q", format=".4f")])
+                st.altair_chart(chart, width="stretch")
                 st.caption(f"{freq} 단위 최댓값")
             latency = observed["latency_ms"].dropna()
             st.caption(f"관측 윈도우 {len(observed):,}개 · 추론 지연 p95 " +
@@ -125,12 +138,14 @@ def monitor():
             display = observed.merge(templates[["event_id", "template"]], on="event_id", how="left")
             # 판정 근거 JSON → 한 줄 설명 (예: "실제: … → 모델 예상: …"), 원본 JSON 칸은 표에서 뺀다
             display["판정 근거"] = [explain(d, r) for d, r in zip(display["details"], display["reason"])]
-            display = display.drop(columns=["details"])
+            # 표와 CSV 의 시각은 KST (2026-11-23, 예전에는 UTC 로 보여 Slack 메시지와 9시간 어긋남)
+            display = to_kst(display.drop(columns=["details"]))
             st.dataframe(display.sort_values("timestamp", ascending=False), hide_index=True, width="stretch")
             st.download_button("조회 결과 CSV 다운로드", display.to_csv(index=False).encode("utf-8-sig"),
                                "logguard_predictions.csv", "text/csv")
     with detail:
-        st.dataframe(sessions.sort_values("last_seen", ascending=False), hide_index=True, width="stretch")
+        st.caption("시각은 모두 한국 시각(KST)입니다.")
+        st.dataframe(to_kst(sessions).sort_values("last_seen", ascending=False), hide_index=True, width="stretch")
         if not sessions.empty:
             choices = list(sessions[["model_name", "block_id"]].itertuples(index=False, name=None))
             selected = st.selectbox("세션 선택", choices, format_func=lambda item: f"{item[0]} · {item[1]}")
@@ -141,13 +156,13 @@ def monitor():
                 if info["is_closed"] else "아직 진행 중 (세션 종료 판정 전, 잠정 판정)"))
             sequence = sequence.merge(templates[["event_id", "template"]], on="event_id", how="left")
             sequence["판정 근거"] = [explain(d, r) for d, r in zip(sequence["details"], sequence["reason"])]
-            st.dataframe(sequence.drop(columns=["details"]), hide_index=True, width="stretch")
+            st.dataframe(to_kst(sequence.drop(columns=["details"])), hide_index=True, width="stretch")
     with notifications:
         st.caption("전송 결과를 읽기 전용으로 표시합니다. 알림 전송과 중복 방지는 백엔드 알림 작업자가 담당합니다.")
         if alerts.empty:
             st.info("조회 구간에 알림 기록이 없습니다.")
         else:
-            st.dataframe(alerts.sort_values("timestamp", ascending=False), hide_index=True, width="stretch")
+            st.dataframe(to_kst(alerts).sort_values("timestamp", ascending=False), hide_index=True, width="stretch")
     with evaluation:
         st.caption("HDFS test · 최종 평가는 세션 단위 · 실시간 조회 필터와 독립적인 저장된 실험 결과")
         try:

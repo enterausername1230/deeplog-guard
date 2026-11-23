@@ -144,6 +144,24 @@ def alerts_since(alerts: pd.DataFrame, cutoff: pd.Timestamp) -> pd.DataFrame:
     return alerts[alerts["timestamp"] >= cutoff]
 
 
+KST = "Asia/Seoul"
+
+
+def to_kst(frame: pd.DataFrame) -> pd.DataFrame:
+    """화면에 보여 줄 표의 시각 칸을 한국 시각(KST)으로 바꾼다 (2026-11-23 추가).
+
+    DB 에는 UTC 로 저장되고 읽을 때도 UTC 로 다룬다 (조회 기간 필터는 그대로 UTC 로 계산).
+    그런데 그대로 표에 넣으면 05:46 처럼 UTC 가 보여서 Slack 메시지(KST)와 9시간 어긋났다.
+    → 시간대가 붙은 시각 칸만 골라 KST 로 바꾸고 시간대 표시를 뗀다 (정렬은 그대로 시각 기준으로 된다).
+    표·그래프·CSV 다운로드 직전에만 쓰고, 원본 프레임은 바꾸지 않는다 (복사본을 돌려준다).
+    """
+    frame = frame.copy()
+    for column in frame.columns:
+        if isinstance(frame[column].dtype, pd.DatetimeTZDtype):
+            frame[column] = frame[column].dt.tz_convert(KST).dt.tz_localize(None)
+    return frame
+
+
 SOURCES = ["데모 데이터", "SQLite"]      # 사이드바 '데이터 소스' 선택지 (순서 = 화면 순서)
 
 

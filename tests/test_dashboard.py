@@ -10,7 +10,7 @@ import pytest
 
 from logguard.config import ROOT
 from logguard.dashboard.data import (alerts_since, default_source, demo_data, explain, read_database, session_summary,
-                                     trend_frequency)
+                                     to_kst, trend_frequency)
 
 SCHEMA = ROOT / "src/logguard/api/schema.sql"     # 백엔드와 공유하는 단일 DB 규격
 
@@ -167,3 +167,12 @@ def test_alerts_after_last_log_are_kept():
     cutoff = pd.Timestamp("2026-11-23T04:30:00Z")          # 조회 시작 (마지막 로그 05:30:00 의 1시간 전)
     kept = alerts_since(alerts, cutoff)
     assert len(kept) == 2                                    # 05:30:20 (마지막 로그 뒤) 포함, 04:00 은 기간 밖
+
+
+def test_display_times_are_kst():
+    """표에 보이는 시각은 KST (UTC 05:46 → KST 14:46). 시각이 아닌 칸과 원본 프레임은 그대로 (2026-11-23)."""
+    frame = pd.DataFrame({"timestamp": pd.to_datetime(["2026-11-23T05:46:00Z"], utc=True), "block_id": ["blk_1"]})
+    shown = to_kst(frame)
+    assert shown["timestamp"].iloc[0] == pd.Timestamp("2026-11-23 14:46:00")
+    assert shown["block_id"].iloc[0] == "blk_1"
+    assert str(frame["timestamp"].dt.tz) == "UTC"      # 필터 계산용 원본은 UTC 유지
