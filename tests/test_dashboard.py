@@ -9,7 +9,8 @@ import pandas as pd
 import pytest
 
 from logguard.config import ROOT
-from logguard.dashboard.data import default_source, demo_data, explain, read_database, session_summary, trend_frequency
+from logguard.dashboard.data import (alerts_since, default_source, demo_data, explain, read_database, session_summary,
+                                     trend_frequency)
 
 SCHEMA = ROOT / "src/logguard/api/schema.sql"     # 백엔드와 공유하는 단일 DB 규격
 
@@ -157,3 +158,12 @@ def test_default_source_prefers_real_db():
     assert default_source(None, "blk_1", False) == "SQLite"         # Slack 링크로 열림
     assert default_source(None, "", True) == "SQLite"               # 서버를 돌려 DB 가 있음
     assert default_source(None, "", False) == "데모 데이터"         # DB 없이 화면만 볼 때
+
+
+def test_alerts_after_last_log_are_kept():
+    """마지막 로그보다 늦게 만들어진 알림(요약은 최대 20초 늦음)도 조회 기간 안이면 보여야 한다 (2026-11-23 수정)."""
+    alerts = pd.DataFrame({"timestamp": ["2026-11-23T05:00:00+00:00", "2026-11-23T05:30:20+00:00", "2026-11-23T04:00:00+00:00"],
+                           "status": ["sent", "sent", "sent"]})
+    cutoff = pd.Timestamp("2026-11-23T04:30:00Z")          # 조회 시작 (마지막 로그 05:30:00 의 1시간 전)
+    kept = alerts_since(alerts, cutoff)
+    assert len(kept) == 2                                    # 05:30:20 (마지막 로그 뒤) 포함, 04:00 은 기간 밖

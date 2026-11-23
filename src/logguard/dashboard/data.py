@@ -132,6 +132,18 @@ def demo_data(templates: pd.DataFrame, seed: int) -> tuple[pd.DataFrame, pd.Data
             normalize_closed(pd.DataFrame(closed, columns=CLOSED_COLUMNS)))
 
 
+def alerts_since(alerts: pd.DataFrame, cutoff: pd.Timestamp) -> pd.DataFrame:
+    """조회 기간 시작(cutoff) 이후의 알림만 남긴다 (2026-11-23 수정).
+
+    예전에는 "cutoff ~ 최신 로그 시각" 사이만 남겼는데, 알림은 항상 로그보다 늦게 만들어진다
+    (긴급 약 0.3~1초, 경고 요약은 최대 20초). 그래서 재생이 끝난 뒤 마지막 로그 이후에 보낸 알림이
+    상단 'Slack 전송 성공' 숫자와 알림 이력에서 빠졌다 → 끝 시각 조건을 없앴다.
+    """
+    alerts = alerts.copy()
+    alerts["timestamp"] = pd.to_datetime(alerts["timestamp"], utc=True)
+    return alerts[alerts["timestamp"] >= cutoff]
+
+
 SOURCES = ["데모 데이터", "SQLite"]      # 사이드바 '데이터 소스' 선택지 (순서 = 화면 순서)
 
 

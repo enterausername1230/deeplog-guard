@@ -18,7 +18,7 @@ import pandas as pd
 import streamlit as st
 
 from logguard.config import ROOT, load_config
-from logguard.dashboard.data import (SOURCES, default_source, demo_data, evaluation_results, explain,
+from logguard.dashboard.data import (SOURCES, alerts_since, default_source, demo_data, evaluation_results, explain,
                                      read_database, session_summary, trend_frequency)
 
 st.set_page_config(page_title="DeepLog Guard", page_icon="🛡️", layout="wide")
@@ -93,9 +93,7 @@ def monitor():
         sessions = sessions[sessions["is_anomaly"]]
         observed = observed.merge(sessions[["model_name", "block_id"]], on=["model_name", "block_id"])
     if not alerts.empty:
-        alerts = alerts.copy()
-        alerts["timestamp"] = pd.to_datetime(alerts["timestamp"], utc=True)
-        alerts = alerts[alerts["timestamp"].between(cutoff, anchor)]
+        alerts = alerts_since(alerts, cutoff)
         alerts = alerts.merge(sessions[["model_name", "block_id"]], on=["model_name", "block_id"])
 
     st.caption(f"기준 시각: {anchor.tz_convert('Asia/Seoul'):%Y-%m-%d %H:%M:%S} KST · 최신 기록 시각 기준으로 조회")
