@@ -15,7 +15,7 @@ make data                             # 데이터가 없을 때만 (약 10분)
 
 - 각 시험 전에 이전 실행이 남아 있지 않은지 확인: `pgrep -fl "uvicorn|streamlit|notifier"` 결과가 비어 있어야 한다
 - `start.sh` 는 실행할 때마다 DB 를 새로 만든다 (`KEEP_DB=1` 이면 유지)
-- **전체 재생(T3) 은 반드시 `NO_SLACK=1`** — Slack 을 켜면 약 55분 동안 알림 메시지가 수천 건 채널에 올라간다
+- **전체 재생(T3) 은 Slack 없이** — 2026-11-23 부터 `./start.sh full` 은 기본으로 Slack 을 끈다 (`SLACK_FULL=1` 일 때만 켬). 아래 명령의 `NO_SLACK=1` 은 확실히 하려고 붙여 둔 것
 
 ## 1. 일정·담당
 
@@ -97,19 +97,20 @@ print('rows', len(l), 'p50/p95/p99 ms', np.percentile(l, [50, 95, 99]).round(3))
 ### T5. Slack E2E 지연 — 목표 ③ 뒷부분
 
 ```bash
-LIMIT=20000 NO_BROWSER=1 ./start.sh        # Slack 켜짐 상태 (.env 필요). 재생 완료 후 10초 기다린 뒤 Ctrl+C
+NO_BROWSER=1 ./start.sh demo        # Slack 켜짐 상태 (.env 필요). 채점 결과가 나온 뒤 25초 기다렸다가 Ctrl+C (마지막 20초 요약까지)
 .venv/bin/python -c "
 import sqlite3, numpy as np
 c = sqlite3.connect('artifacts/api/logguard.sqlite')
-e = np.array([r[0] for r in c.execute(\"SELECT (julianday(a.completed_at)-julianday(l.sent_at))*86400000 FROM alerts a JOIN logs l ON l.id=a.log_id WHERE a.status='sent' AND l.sent_at IS NOT NULL\")])
+e = np.array([r[0] for r in c.execute(\"SELECT (julianday(a.completed_at)-julianday(l.sent_at))*86400000 FROM alerts a JOIN logs l ON l.id=a.log_id WHERE a.status='sent' AND l.sent_at IS NOT NULL AND a.message LIKE '🔴%'\")])
 print('n', len(e), 'p50/p95/max ms', np.percentile(e, [50, 95]).round(0), e.max().round(0), '2초 이내', f'{(e <= 2000).mean():.0%}')"
 ```
 
-| 합격 기준 | 참고값 (11/19) |
+| 합격 기준 | 참고값 |
 |---|---|
-| p95 ≤ 2,000ms, 실패 0 | 12건, p95 1,641ms, 최대 1,717ms |
+| 긴급 알림 p95 ≤ 2,000ms, 실패 0 | 11/19 실제 Slack (이전 정책, 전부 즉시): 12건 p95 1,641ms / 11/23 가짜 Slack 0.3초 (등급 정책): 긴급 5건 × 3회 최대 1,603ms |
 
-여러 번(3회) 반복해 결과를 모두 적는다. Slack 응답이 느린 날은 값이 커질 수 있다.
+- 2026-11-23 알림 등급 정책 이후 E2E 는 **즉시 보내는 긴급 알림**(`message` 가 `🔴` 로 시작)으로 잰다. 경고는 정책상 최대 20초 모아서 보내므로 계산에서 뺀다
+- 여러 번(3회) 반복해 결과를 모두 적는다. Slack 응답이 느린 날은 값이 커질 수 있다
 
 ### T6. 부하 — 목표 ④
 
@@ -157,11 +158,13 @@ NO_SLACK=1 ./start.sh serve                # 터미널 1 (재생 없이 서버�
 
 | # | 절차 | 기대 결과 |
 |---|---|---|
-| 9-1 | T5 실행 후 '알림 이력' 탭과 `alerts` 테이블 | 이상 블록 수 = alerts 행 수 (블록당 1회), 모두 sent |
-| 9-2 | 메시지 형식 확인 | 긴급/경고 표시, 블록 ID, 점수, KST 시각, 원본 로그, 대시보드 링크 |
+| 9-1 | T5 실행 후 '알림 이력' 탭과 `alerts` 테이블 | 이상 블록 수 = alerts 행 수 (블록당 1회), 모두 sent. 긴급(🔴) 행 수 = 나온 이상 유형 수 (시연 샘플 6개), 나머지는 경고(🟠) |
+| 9-2 | 메시지 형식 확인 | 긴급 카드: 유형 이름·설명, 블록, 관련 노드(추정), 점수, KST 시각, 흐름, 권장 조치, 원본 로그, 대시보드 링크 / 경고 요약: 유형별 개수, 예시 블록 (Slack 메시지 약 8건) |
 | 9-3 | 링크 클릭 | 그 블록만 걸러진 대시보드 (SQLite 모드) |
 | 9-4 | 실패 처리: `NO_SLACK=1 LIMIT=20000 ./start.sh` 로 미알림 이상이 있는 DB 를 만든 뒤 (Ctrl+C), 형식은 맞지만 없는 주소로 한 번 실행 `SLACK_WEBHOOK_URL=https://hooks.slack.com/services/TEST/TEST/not-a-real-token PYTHONPATH=src .venv/bin/python -m logguard.dashboard.notifier --once` | 알림이 모두 `failed` 로 기록, 자동 재전송 없음. 실제 채널에는 아무것도 안 감 |
 | 9-5 | 실패 건 재전송: `.env` 주소로 `PYTHONPATH=src .venv/bin/python -m logguard.dashboard.notifier --retry-failed --once` | failed 건이 sent 로 바뀜 |
+| 9-6 | 20초 요약: T5 실행 중 Slack 메시지 시각 | 같은 유형 반복은 즉시 오지 않고 약 20초 간격 요약으로 옴 |
+| 9-7 | 재시작: 알림 작업자만 껐다 켬 (`make slack`) 후 같은 유형 이상 추가 | 이미 알린 유형은 다시 '새 유형 첫 발생' 으로 오지 않음 |
 
 ### T10. 대시보드
 
@@ -199,7 +202,7 @@ NO_SLACK=1 ./start.sh serve                # 터미널 1 (재생 없이 서버�
 | T6 부하 50명 실패율·처리량 / 100명 최대 | ___% · ___ req/s / ___ req/s | | |
 | T7 예외 입력 (8개) | __/8 | | |
 | T8 세션 재판정 | | | |
-| T9 알림 기능 (5개) | __/5 | | |
+| T9 알림 기능 (7개) | __/7 | | |
 | T10 대시보드 (8개) | __/8 | | |
 | T11 재시작 | | | |
 

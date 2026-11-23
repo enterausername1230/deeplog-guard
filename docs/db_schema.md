@@ -62,17 +62,19 @@
    - 실시간: `logs` 에서 `status = 'anomaly'` (인덱스 사용) 중 아직 alerts 에 없는 블록
    - 세션 종료: `session_results` 에서 `is_anomaly = 1` 중 아직 alerts 에 없는 블록
 2. `INSERT OR IGNORE INTO alerts (…, status) VALUES (…, 'pending')` — UNIQUE 덕분에 **같은 블록은 한 번만** 알림
-3. 쌓인 블록을 메시지 1건에 묶어 Slack Incoming Webhook 으로 전송 (URL 은 `.env` 의 `SLACK_WEBHOOK_URL`, 커밋 금지)
+3. 알림 등급 정책(2026-11-23)에 따라 Slack Incoming Webhook 으로 전송 (URL 은 `.env` 의 `SLACK_WEBHOOK_URL`, 커밋 금지)
+   - 🔴 긴급(새 유형 첫 발생)은 즉시 블록 1개 상세, 🟠 경고는 20초마다 요약 1건 — `message` 첫 글자로 구분 (`🔴` / `🟠`)
 4. 결과로 `UPDATE alerts SET status = 'sent' | 'failed', completed_at = 지금, error = …` 그리고 `UPDATE logs SET alerted = 1 WHERE id = log_id`
 
-메시지 예: `[이상] blk_-160… · autoencoder 점수 0.83 · 실제: Deleting block … → 모델 예상: Receiving block …` (`dashboard.data.explain()` 재사용 가능)
+메시지 예 (2026-11-23): 긴급 `🔴 [긴급] 새 유형 첫 발생 — 블록 쓰기 중 네트워크·입출력 오류` + 설명·블록·관련 노드·흐름·조치·원본 / 경고 `🟠 [경고] 블록 삭제 실패 · blk_… · 점수 0.83 (요약 알림으로 발송)`. 유형 안내표: `configs/event_guide.yaml`
 
 ## 계획서 목표 ③ E2E 지연 계산
 
 ```sql
 SELECT (julianday(a.completed_at) - julianday(l.sent_at)) * 86400000 AS e2e_ms
 FROM alerts a JOIN logs l ON l.id = a.log_id
-WHERE a.status = 'sent' AND l.sent_at IS NOT NULL;
+WHERE a.status = 'sent' AND l.sent_at IS NOT NULL
+  AND a.message LIKE '🔴%';   -- 2026-11-23: 즉시 보내는 긴급 알림만 (경고는 정책상 최대 20초 모아서 보냄)
 ```
 
 목표: p95 ≤ 2,000ms.

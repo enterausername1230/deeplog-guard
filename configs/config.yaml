@@ -95,6 +95,15 @@ slack:
   batch_size: 1000             # 한 메시지에 묶을 수 있는 최대 블록 수 (세션 종료 판정 약 600건도 한 번에 처리)
   timeout_seconds: 5
   send_interval_seconds: 1.1   # 메시지 사이 간격 (Slack Webhook 제한: 초당 약 1건)
-  critical_score: 0.9          # 이 점수 이상이거나 학습에 없던 이벤트면 긴급 표시
-  digest_limit: 10             # 묶음 메시지에 이름을 보여 줄 블록 수 (나머지는 "외 N개")
   dashboard_url: http://localhost:8501   # 메시지 링크 주소. 학교 서버에 올리면 그 주소로 변경
+  # 알림 등급 정책 (2026-11-23). 유형별 설명·조치는 configs/event_guide.yaml
+  #   🔴 긴급(즉시): 이번 실행에서 처음 나온 이상 유형 / 이상 급증
+  #   🟠 경고(요약): 그 밖의 이상 블록을 digest_seconds 마다 한 메시지로
+  digest_seconds: 20           # 경고 요약 주기 (초). 30초 시연에서도 요약이 보이도록 20초
+  digest_examples: 3           # 요약 메시지에 예시로 보여 줄 블록 수
+  spike_window_seconds: 60     # 급증 판정: 최근 이 시간(초) 동안의 이상 블록 수를
+  spike_baseline_seconds: 600  #   그 전 이 시간(초) 동안의 같은 길이 평균과 비교
+  spike_ratio: 3.0             #   평균의 이 배수 이상이고
+  spike_min_blocks: 5          #   이 개수 이상이면 급증 (평소 대비라서 재생 속도와 무관)
+  spike_min_history_seconds: 120   # 작업자를 켠 뒤 이만큼 지나야 급증 판정 시작 (비교할 평소 기록이 필요)
+  spike_cooldown_seconds: 300  # 급증 경보 후 이 시간 동안은 다시 보내지 않음

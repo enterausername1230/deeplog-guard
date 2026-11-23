@@ -21,8 +21,10 @@
 #   KEEP_DB=1 ./start.sh       이전 실행의 DB 를 지우지 않고 이어서 쓰기 (기본: 매번 새 DB)
 #   NO_BROWSER=1 ./start.sh    브라우저 자동 열기 끄기
 #   NO_SLACK=1 ./start.sh      Slack 알림 끄기 (.env 에 SLACK_WEBHOOK_URL 이 있어도 보내지 않음)
+#   SLACK_FULL=1 ./start.sh full   full 모드에서도 Slack 알림 켜기 (기본은 끔: 약 1시간 동안 채널에 알림이 계속 쌓이므로)
 #
 # Slack 알림: .env(또는 환경변수)에 SLACK_WEBHOOK_URL 이 있으면 알림 프로그램도 같이 켜진다. 없으면 알림 없이 실행
+#   알림 정책: 🔴 긴급(새 유형 첫 발생·이상 급증)은 즉시, 🟠 경고는 20초마다 요약 (configs/config.yaml slack:)
 #
 # 실행 기록(로그 파일): artifacts/run_logs/{api,dashboard,replay,notifier}.log
 # =============================================================================================
@@ -52,7 +54,7 @@ die()  { printf '\033[1;31m[오류]\033[0m %s\n' "$*"; exit 1; }  # 빨간색 �
 
 case "$MODE" in
   quick|demo|full|serve) ;;
-  -h|--help|help) sed -n '2,27p' "$0"; exit 0 ;;           # 위 설명 부분을 그대로 보여 줌
+  -h|--help|help) sed -n '2,29p' "$0"; exit 0 ;;           # 위 설명 부분을 그대로 보여 줌
   *) die "알 수 없는 모드: $MODE  (quick / demo / full / serve 중 하나)" ;;
 esac
 
@@ -137,6 +139,9 @@ fi
 # ── 5-1. Slack 알림 프로그램 (백엔드가 DB 를 만든 뒤에 켠다) ───────────────────────────────────
 if [ "${NO_SLACK:-0}" = "1" ]; then
   say "   Slack 알림: 꺼짐 (NO_SLACK=1)"
+elif [ "$MODE" = "full" ] && [ "${SLACK_FULL:-0}" != "1" ]; then
+  # 2026-11-23: 전체 재생(약 1시간)은 기본으로 Slack 을 끈다. 실수로 채널에 알림이 계속 쌓이는 것을 막기 위해
+  say "   Slack 알림: 꺼짐 (full 모드 기본값. 켜려면 SLACK_FULL=1 ./start.sh full)"
 elif [ -n "${SLACK_WEBHOOK_URL:-}" ] || { [ -f .env ] && grep -q '^SLACK_WEBHOOK_URL=' .env; }; then
   PYTHONPATH=src "$PY" -m logguard.dashboard.notifier > "$LOG_DIR/notifier.log" 2>&1 &
   NOTIFIER_PID=$!

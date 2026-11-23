@@ -235,16 +235,17 @@ SLACK_WEBHOOK_URL=여기에_발급받은_URL
 ```bash
 make slack-preview   # 먼저 대상 메시지 확인: Slack 전송·DB 변경 없음
 make slack           # 실제 전송: 별도 터미널에서 실행, Ctrl+C로 종료
-# 한 배치만 전송하려면
+# 쌓인 대상을 한 번만 처리(요약 포함)하고 끝내려면
 PYTHONPATH=src .venv/bin/python -m logguard.dashboard.notifier --once
 ```
 
 백엔드를 먼저 실행해야 DB가 생성됩니다. `start.sh`는 `.env`에 Webhook 주소가 있으면 알림 작업자도 함께 켭니다 (`NO_SLACK=1`로 끄기).
+단 `./start.sh full`(전체 재생 약 1시간)은 기본으로 Slack 을 끕니다 (켜려면 `SLACK_FULL=1 ./start.sh full`).
 알림 설정값은 `configs/config.yaml`의 `slack`에 있고 DB 경로는 백엔드 설정(`LOGGUARD_API_CONFIG` 지원)을 따릅니다.
 외부 전송은 Webhook을 설정하고 `make slack`을 실행했을 때 시작됩니다. **기존 DB의 미알림 이상도 대상**입니다.
 
 작업자는 `logs.status='anomaly'` 또는 `session_results.is_anomaly=1`인 세션을 찾고,
-`alerts`의 UNIQUE(block_id, model_name)으로 전송 대상을 선점합니다. 쌓인 이상은 **메시지 1건에 묶어** 보냅니다 (1건이면 상세, 여러 건이면 요약, 긴급 먼저). Slack 응답이 성공이면 `sent`,
+`alerts`의 UNIQUE(block_id, model_name)으로 전송 대상을 선점합니다. 아래 **알림 등급 정책**에 따라 긴급은 바로, 경고는 모아서 보냅니다. Slack 응답이 성공이면 `sent`,
 실패하면 `failed`와 오류·완료 시각을 기록합니다. 성공한 세션의 로드된 로그에 `alerted=1`을 설정합니다.
 세션 종료에서만 이상으로 판정되면 `alerts.log_id`는 NULL입니다. 대시보드의 알림 이력 탭에서 결과를 확인합니다.
 
@@ -252,7 +253,7 @@ PYTHONPATH=src .venv/bin/python -m logguard.dashboard.notifier --once
 전송 중 프로세스가 종료되면 다음 시작 때 해당 `pending` 기록을 `failed`로 표시하며 자동 재전송하지 않습니다.
 실패한 알림은 `python -m logguard.dashboard.notifier --retry-failed`를 직접 실행할 때만 다시 보냅니다.
 즉, DB 중복 선점은 막지만 HTTP 전송과 DB 저장을 완전히 하나의 트랜잭션으로 만들 수는 없습니다.
-메시지 사이 간격은 약 1초입니다(Slack 제한). 쌓인 이상은 다음 메시지에 함께 담기므로 뒤에 줄을 서지 않습니다.
+메시지 사이 간격은 최소 약 1초입니다(Slack 제한). 다음 전송 직전에만 남은 시간만큼 기다려 긴급 알림이 늦어지지 않게 했습니다.
 공식 설정 문서: https://docs.slack.dev/messaging/sending-messages-using-incoming-webhooks
 
 ### Slack 알림이 발생하는 조건
@@ -270,8 +271,25 @@ PYTHONPATH=src .venv/bin/python -m logguard.dashboard.notifier --once
 - 작업자를 켜기 전에 DB에 저장된 미알림 이상도 전송 대상입니다.
 - `alerts`에 이미 `pending`, `sent`, `failed` 중 어떤 상태로든 기록된 세션은 자동 재전송하지 않습니다.
 - 실패·타임아웃은 기록만 남기며 자동 재시도하지 않습니다. 대상·상태는 대시보드 알림 이력에서 확인합니다.
-- 긴급 표시: 학습에 없던 이벤트이거나 점수가 `slack.critical_score`(0.9) 이상. 메시지의 대시보드 링크 주소는 `slack.dashboard_url`.
-- `slack.poll_seconds`는 대상 조회 간격이고, 실제 전송은 `slack.send_interval_seconds` 간격을 둡니다.
+- 메시지의 대시보드 링크 주소는 `slack.dashboard_url`. `slack.poll_seconds`는 대상 조회 간격입니다.
+
+### 알림 등급 정책 (2026-11-23)
+
+이상은 모두 DB 에 기록하고 판정하지만, **사람에게는 중요한 것만 바로** 알립니다 (블록마다 알림을 보내면 알림 피로가 생긴다).
+
+| 등급 | 조건 | 보내는 방식 |
+|---|---|---|
+| 🔴 긴급 | **새 유형 첫 발생**: 이번 실행에서 처음 나온 이상 유형 | 즉시, 블록 1개 상세 카드 |
+| 🔴 긴급 | **이상 급증**: 최근 60초 이상 블록 수가 그 전 평균의 3배 이상이고 5개 이상 (켠 지 2분 뒤부터, 경보 후 5분간 반복 없음) | 즉시, 급증 경보 |
+| 🟠 경고 | 그 밖의 이상 블록 (이미 알린 유형의 반복, 끊긴 세션 등) | **20초마다 요약 1건** (유형별 개수 + 예시) |
+| ⚪ 정보 | 블록 하나하나의 상세 | Slack 에는 보내지 않고 대시보드에서 확인 |
+
+- 이상 유형과 운영자용 설명·권장 조치: `configs/event_guide.yaml` (템플릿 52개 → 유형 10개. 예: 블록 쓰기 중 네트워크·입출력 오류, 블록 삭제 실패, 빈 패킷 수신, 평소와 다른 작업 순서, 작업이 중간에 끊긴 블록)
+- 긴급 카드 내용: 유형 이름·설명, 블록, 관련 노드(로그의 IP 로 추정 — HDFS 로그에는 서버 이름이 없음), 점수, 감지 시각, 블록 흐름(최근 단계 5개), 권장 조치, 원본 로그, 대시보드 링크
+- 작업자를 다시 켜도 이미 긴급으로 알린 유형은 `alerts` 기록으로 기억해 다시 "첫 발생" 으로 보내지 않습니다
+- 설정: `configs/config.yaml` 의 `slack.digest_seconds`(20), `spike_*`
+- 효과 (시연 샘플 1,000블록, 이상 28개): 메시지 약 8건 (긴급 6 + 요약 2). 긴급 E2E 최대 약 1.6초 (가짜 Slack 응답 0.3초 기준, 3회)
+- E2E 지연(목표 ③)은 즉시 보내는 긴급 알림으로 잽니다 (`alerts.message` 가 `🔴` 로 시작하는 행, 계산 SQL 은 `docs/db_schema.md`)
 
 시연 서버를 다른 팀원이 실행하면 Webhook URL은 비공개 경로로 별도 전달하고,
 그 서버의 프로젝트 루트 `.env`에 저장해야 합니다. `.env`와 `.env.*`는 `.gitignore` 대상이며,

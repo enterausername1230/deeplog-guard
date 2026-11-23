@@ -1,0 +1,109 @@
+# 이상 유형 안내표 — Slack 알림이 "무슨 일인지, 무엇을 하면 되는지" 를 운영자 말로 보여 주기 위한 표
+# 작성: 옥상민 / 2026-11-23 (알림 등급·요약 정책 도입과 함께)
+#
+# groups : 알림에서 쓰는 "이상 유형". 비슷한 예외 템플릿을 한 유형으로 묶는다
+#          → "새 유형 첫 발생" 긴급 알림은 유형마다 한 번만 간다 (같은 종류 예외가 템플릿만 달라도 또 긴급이 되지 않게)
+#   name   : 알림 제목에 쓰는 이름
+#   desc   : 무슨 일이 일어났는지 (운영자용 설명)
+#   action : 권장 조치 한 줄
+# events : Drain 템플릿 번호(event_id, data/interim/hdfs_templates.csv) → 정보
+#   step   : 블록 흐름 요약에 쓰는 짧은 단계 이름 (예: 수신 시작 → 수신 완료 → ⚠️ 쓰기 입출력 오류)
+#   group  : 이 로그 자체가 오류인 템플릿만 지정. 없으면 정상 단계 (그 줄에서 이상이 나면 "순서 이상" 으로 본다)
+#
+# 특수 유형 (템플릿과 무관하게 판정 방식으로 정해짐): sequence(순서 이상), new_format(처음 보는 형식), truncated(끊긴 세션)
+
+groups:
+  write_error:
+    name: 블록 쓰기 중 네트워크·입출력 오류
+    desc: 데이터 노드가 블록을 받거나 다른 노드로 넘기는 도중 연결이 끊기거나 시간이 초과되어 쓰기에 실패했습니다.
+    action: 관련 노드의 네트워크 연결과 디스크 상태를 확인하세요. 같은 노드에서 반복되면 노드 점검이 필요합니다.
+  interrupted:
+    name: 블록 작업 강제 중단
+    desc: 입출력을 기다리던 작업이 인터럽트로 중단되었습니다 (노드 종료·재시작, 작업 취소 등).
+    action: 해당 시각에 노드 재시작이나 작업 취소가 있었는지 확인하세요.
+  empty_packet:
+    name: 빈 패킷 수신
+    desc: 블록 데이터 없이 빈 패킷이 들어왔습니다. 보내는 쪽이 전송을 중간에 멈췄을 수 있습니다.
+    action: 보낸 노드의 상태와 클라이언트 작업이 중간에 취소되지 않았는지 확인하세요.
+  delete_error:
+    name: 블록 삭제 실패
+    desc: 삭제하려는 블록의 정보를 데이터 노드에서 찾지 못했습니다 (이미 지워졌거나 메타데이터가 서로 다름).
+    action: NameNode 와 DataNode 의 블록 정보가 일치하는지 점검하세요 (hdfs fsck).
+  duplicate_block:
+    name: 블록 중복·충돌
+    desc: 이미 있는 블록을 다시 저장하거나, 유효한 블록에 덮어쓰려는 요청이 들어왔습니다.
+    action: 같은 블록에 대한 재시도·중복 복제 작업이 반복되는지 확인하세요.
+  replication_issue:
+    name: 블록 복제 지연·정리
+    desc: 블록 복제가 제한 시간 안에 끝나지 않았거나, 파일에 속하지 않은 블록이 복제 목록에서 빠졌습니다.
+    action: 복제 대상 노드의 상태와 클러스터 여유 공간을 확인하세요.
+  block_recovery:
+    name: 블록 복구 작업 발생
+    desc: 블록을 다시 열거나 파일 위치를 되돌리는 복구 작업이 일어났습니다 (앞선 쓰기 실패 뒤에 흔히 발생).
+    action: 직전의 쓰기 실패 알림과 함께 확인하세요. 단독으로 반복되면 디스크 상태를 점검하세요.
+  sequence:
+    name: 평소와 다른 작업 순서
+    desc: 각 로그는 정상 형식이지만 단계의 순서나 횟수가 평소 정상 블록의 흐름과 다릅니다 (모델 판정).
+    action: 대시보드에서 이 블록의 전체 흐름과 판정 근거(실제 → 모델 예상)를 확인하세요.
+  new_format:
+    name: 처음 보는 형식의 로그
+    desc: 학습한 어떤 로그 형식과도 맞지 않는 새로운 로그가 나왔습니다.
+    action: 원본 로그를 직접 확인하세요. 소프트웨어 변경이나 새로운 종류의 장애일 수 있습니다.
+  truncated:
+    name: 작업이 중간에 끊긴 블록
+    desc: 블록 작업이 마무리 단계(정상 종료) 없이 멈춘 채 세션이 끝났습니다 (세션 종료 판정).
+    action: 이 블록을 처리하던 노드에서 작업이 왜 중단됐는지 확인하세요.
+
+events:
+  1: {step: 수신 시작}
+  2: {step: 블록 할당}
+  3: {step: 수신 응답 종료}
+  4: {step: 수신 완료}
+  5: {step: 블록맵 갱신}
+  6: {step: 수신 완료}
+  7: {step: 다른 노드로 전송 완료}
+  8: {step: 전송 시작}
+  9: {step: 복제 요청}
+  10: {step: 블록 제공}
+  11: {step: 복제 요청}
+  12: {step: 전송 시작}
+  13: {step: 검증 성공}
+  14: {step: 쓰기 시간 초과, group: write_error}
+  15: {step: 응답 중 EOF 예외, group: write_error}
+  16: {step: 쓰기 입출력 오류, group: write_error}
+  17: {step: 블록 파일 삭제}
+  18: {step: 빈 패킷 수신, group: empty_packet}
+  19: {step: 수신 연결 끊김, group: write_error}
+  20: {step: 쓰기 연결 끊김, group: write_error}
+  21: {step: 중복 저장 요청, group: duplicate_block}
+  22: {step: 응답 시간 초과, group: write_error}
+  23: {step: 응답 대기 중단, group: interrupted}
+  24: {step: 수신 예외, group: write_error}
+  25: {step: 쓰기 중 EOF 예외, group: write_error}
+  26: {step: 응답 중단, group: interrupted}
+  27: {step: 블록 오프셋 되돌림, group: block_recovery}
+  28: {step: 미러 노드 쓰기 예외, group: write_error}
+  29: {step: 수신 대기 중단, group: interrupted}
+  30: {step: 쓰기 대기 중단, group: interrupted}
+  31: {step: 응답 파이프 끊김, group: write_error}
+  32: {step: 유효 블록 덮어쓰기 거부, group: duplicate_block}
+  33: {step: 다른 노드로 전송 실패, group: write_error}
+  34: {step: 삭제 대기 등록}
+  35: {step: 블록 삭제 실패, group: delete_error}
+  36: {step: 파일 없는 블록 저장 요청, group: duplicate_block}
+  37: {step: 블록 제공 중 예외}
+  38: {step: 응답 연결 끊김, group: write_error}
+  39: {step: 수신 시간 초과, group: write_error}
+  40: {step: 쓰기 시간 초과, group: write_error}
+  41: {step: 쓰기 채널 중단, group: interrupted}
+  42: {step: 블록 다시 열기, group: block_recovery}
+  43: {step: 응답 채널 중단, group: interrupted}
+  44: {step: 복제 목록에서 제거, group: replication_issue}
+  45: {step: 복제 시간 초과, group: replication_issue}
+  46: {step: 쓰기 수신 중단, group: interrupted}
+  47: {step: 응답 대기 중단, group: interrupted}
+  48: {step: 호스트 연결 불가, group: write_error}
+  49: {step: 쓰기 파이프 끊김, group: write_error}
+  50: {step: 기존 블록 중복 추가, group: duplicate_block}
+  51: {step: 수신 파이프 끊김, group: write_error}
+  52: {step: 응답 스트림 닫힘, group: write_error}
